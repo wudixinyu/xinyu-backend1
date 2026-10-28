@@ -59,12 +59,11 @@ jobs:
           retention-days: 3
 
   # ---------- 2. 部署到宝塔服务器 ----------
+  # 认证方式：优先公钥（DEPLOY_SSH_KEY），公钥被拒时自动降级为密码（DEPLOY_PASSWORD）
   deploy:
     name: Deploy
     needs: build
     runs-on: ubuntu-latest
-    # 需要配置 Secrets：DEPLOY_SSH_KEY / DEPLOY_HOST / DEPLOY_USER / DEPLOY_PATH
-    # 可选 Secrets：DEPLOY_PORT（默认 22）
     steps:
       - name: Download dist artifact
         uses: actions/download-artifact@v4
@@ -72,34 +71,117 @@ jobs:
           name: dist
           path: ${{ env.DIST_DIR }}
 
-      - name: Safety check on target path
+      # 把"缺少 Secret"这类问题在第一步就明确报出来，而不是等 ssh 报一句看不懂的错
+      - name: Preflight check
         env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          PASSWORD: ${{ secrets.DEPLOY_PASSWORD }}
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USER_NAME: ${{ secrets.DEPLOY_USER }}
           TARGET: ${{ secrets.DEPLOY_PATH }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
         run: |
-          if [ -z "$TARGET" ]; then
-            echo "::error::DEPLOY_PATH 未配置"; exit 1
+          missing=""
+          [ -z "$HOST" ]        && missing="$missing DEPLOY_HOST"
+          [ -z "$USER_NAME" ]   && missing="$missing DEPLOY_USER"
+          [ -z "$TARGET" ]      && missing="$missing DEPLOY_PATH"
+          if [ -n "$missing" ]; then
+            echo "::error::以下 Secrets 未配置（Settings → Secrets and variables → Actions）：$missing"
+            exit 1
           fi
+          if [ -z "$SSH_KEY" ] && [ -z "$PASSWORD" ]; then
+            echo "::error::DEPLOY_SSH_KEY 与 DEPLOY_PASSWORD 至少需要配置一个"
+            exit 1
+          fi
+          # 防止 --delete 误删服务器目录
           case "$TARGET" in
-            "/"|"/www"|"/www/wwwroot"|"/www/wwwroot/"|"" )
-              echo "::error::DEPLOY_PATH=$TARGET 过于宽泛，配合 --delete 会误删服务器文件，已中止"; exit 1;;
+            "/"|"/www"|"/www/wwwroot"|"/www/wwwroot/"|"/www/wwwroot/.")
+              echo "::error::DEPLOY_PATH=$TARGET 过于宽泛，配合 --delete 会误删文件，已中止"; exit 1;;
           esac
-          echo "部署目标：$TARGET"
+          echo "目标：${USER_NAME}@${HOST}:${PORT:-22}  ->  ${TARGET}"
+          echo "待上传文件数：$(find "${{ env.DIST_DIR }}" -type f | wc -l)"
 
-      - name: Deploy dist to server
-        uses: easingthemes/ssh-deploy@main
-        with:
-          SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
-          REMOTE_HOST: ${{ secrets.DEPLOY_HOST }}
-          REMOTE_USER: ${{ secrets.DEPLOY_USER }}
-          REMOTE_PORT: ${{ secrets.DEPLOY_PORT || '22' }}
+      - name: Setup SSH (auto detect auth method)
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          PASSWORD: ${{ secrets.DEPLOY_PASSWORD }}
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER_NAME: ${{ secrets.DEPLOY_USER }}
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          ssh-keyscan -p "${PORT:-22}" -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+          PORT="${PORT:-22}"
+          HAVE_KEY=0
+          HAVE_PW=0
+
+          if [ -n "$SSH_KEY" ]; then
+            # 兼容粘贴时把换行变成字面量 \n 的情况
+            if printf '%s' "$SSH_KEY" | grep -q $'\n'; then
+              printf '%s\n' "$SSH_KEY" | tr -d '\r' > ~/.ssh/deploy_key
+            else
+              echo "私钥为单行格式，自动还原换行"
+              printf '%s' "$SSH_KEY" | sed 's/\\n/\n/g' > ~/.ssh/deploy_key
+            fi
+            chmod 600 ~/.ssh/deploy_key
+            HAVE_KEY=1
+          fi
+
+          if [ -n "$PASSWORD" ]; then
+            sudo apt-get update -qq >/dev/null 2>&1 || true
+            sudo apt-get install -y -qq sshpass >/dev/null 2>&1 || true
+            command -v sshpass >/dev/null && HAVE_PW=1
+          fi
+
+          echo "----- 认证方式探测 -----"
+          # 1) 先试公钥
+          if [ "$HAVE_KEY" = "1" ]; then
+            if ssh -i ~/.ssh/deploy_key -p "$PORT" -o BatchMode=yes -o ConnectTimeout=15 \
+                   -o StrictHostKeyChecking=accept-new "${USER_NAME}@${HOST}" true 2>/dev/null; then
+              echo "AUTH_MODE=key" >> "$GITHUB_ENV"
+              echo "公钥认证通过"
+              exit 0
+            fi
+            echo "公钥认证未通过（服务端可能未安装该公钥，或 sshd 关闭了 PubkeyAuthentication）"
+          fi
+          # 2) 公钥不行则降级密码
+          if [ "$HAVE_PW" = "1" ]; then
+            export SSHPASS="$PASSWORD"
+            if sshpass -e ssh -p "$PORT" -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new \
+                   -o PreferredAuthentications=password,keyboard-interactive -o PubkeyAuthentication=no \
+                   "${USER_NAME}@${HOST}" true 2>/dev/null; then
+              echo "AUTH_MODE=password" >> "$GITHUB_ENV"
+              echo "密码认证通过（可正常部署，建议之后改用公钥更安全）"
+              exit 0
+            fi
+            echo "密码认证也失败"
+          fi
+
+          echo "::error::SSH 认证全部失败。排查：①DEPLOY_HOST/USER 是否正确（宝塔面板显示的用户名）②密码模式下密码是否正确、SSH 端口 ${PORT} 是否放行 ③公钥模式下需把 deploy_key.pub 追加到服务器 ~/.ssh/authorized_keys ④服务端 /etc/ssh/sshd_config 是否 PubkeyAuthentication yes"
+          exit 1
+
+      - name: Rsync dist to server
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER_NAME: ${{ secrets.DEPLOY_USER }}
           TARGET: ${{ secrets.DEPLOY_PATH }}
-          # 只上传构建产物，不上传源码/依赖
-          SOURCE: 'dist/'
-          # -r 递归 -l 链接 -p 权限 -t 时间 -g 组 -o 属主 -D 设备 -z 压缩 -v 日志 -c 校验
-          # --delete 清掉服务器上已不存在的旧文件（hash 文件名场景必须加）
-          ARGS: '-rlgoDzvc -i --delete'
-          # 上传完成后可执行远端命令（例如重载 nginx；宝塔下如需 sudo 请先配置免密）
-          # SCRIPT_BEFORE: |
-          #   echo "deploy start: $(date)"
-          # SCRIPT_AFTER: |
-          #   echo "deploy done: $(date)"
+          SSHPASS: ${{ secrets.DEPLOY_PASSWORD }}
+        run: |
+          PORT="${PORT:-22}"
+          if [ "$AUTH_MODE" = "password" ]; then
+            SSH_CMD="sshpass -e ssh -p $PORT -o StrictHostKeyChecking=accept-new -o PreferredAuthentications=password,keyboard-interactive -o PubkeyAuthentication=no"
+          else
+            SSH_CMD="ssh -i $HOME/.ssh/deploy_key -p $PORT -o BatchMode=yes -o StrictHostKeyChecking=accept-new"
+          fi
+          echo "认证方式：$AUTH_MODE"
+
+          # 目标目录不存在则创建（宝塔站点根目录通常已存在，这里做兜底）
+          $SSH_CMD "${USER_NAME}@${HOST}" "mkdir -p '$TARGET'"
+
+          rsync -rlptgoDz --delete --chmod=D755,F644 \
+                -e "$SSH_CMD" \
+                "${{ env.DIST_DIR }}/" "${USER_NAME}@${HOST}:$TARGET/"
+
+          echo "----- 部署结果 -----"
+          $SSH_CMD "${USER_NAME}@${HOST}" "echo \"$TARGET 内文件数: \$(find '$TARGET' -type f | wc -l)\"; ls -lh '$TARGET' | head -20"
