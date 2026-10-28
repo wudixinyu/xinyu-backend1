@@ -1,24 +1,105 @@
 name: Deploy to BaoTa
 
+# 触发条件：
+# 1. 推送到 main 分支（仅代码/配置变更，文档改动不触发）
+# 2. 在 Actions 页面手动执行
 on:
   push:
-    branches: [ main ]
+    branches: [main]
+    paths-ignore:
+      - '**/*.md'
+      - '.gitignore'
+      - 'LICENSE'
   workflow_dispatch:
 
+# 同一时间只跑一条流水线，新提交会取消进行中的旧任务
+concurrency:
+  group: deploy-production
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '20'
+  BUILD_CMD: 'npm run build:prod' # 若依默认生产构建 -> dist/
+  DIST_DIR: 'dist'
+
 jobs:
-  build-and-deploy:
+  # ---------- 1. 构建 ----------
+  build:
+    name: Build
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 部署整个项目源码（排除 node_modules 等）
-      - name: Deploy to server
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Build
+        run: ${{ env.BUILD_CMD }}
+
+      - name: Verify build output
+        run: |
+          test -f "${{ env.DIST_DIR }}/index.html" || { echo "::error::构建产物缺少 index.html"; exit 1; }
+          echo "构建产物大小："
+          du -sh "${{ env.DIST_DIR }}"
+          ls -lh "${{ env.DIST_DIR }}"
+
+      - name: Upload dist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: ${{ env.DIST_DIR }}
+          retention-days: 3
+
+  # ---------- 2. 部署到宝塔服务器 ----------
+  deploy:
+    name: Deploy
+    needs: build
+    runs-on: ubuntu-latest
+    # 需要配置 Secrets：DEPLOY_SSH_KEY / DEPLOY_HOST / DEPLOY_USER / DEPLOY_PATH
+    # 可选 Secrets：DEPLOY_PORT（默认 22）
+    steps:
+      - name: Download dist artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: ${{ env.DIST_DIR }}
+
+      - name: Safety check on target path
+        env:
+          TARGET: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          if [ -z "$TARGET" ]; then
+            echo "::error::DEPLOY_PATH 未配置"; exit 1
+          fi
+          case "$TARGET" in
+            "/"|"/www"|"/www/wwwroot"|"/www/wwwroot/"|"" )
+              echo "::error::DEPLOY_PATH=$TARGET 过于宽泛，配合 --delete 会误删服务器文件，已中止"; exit 1;;
+          esac
+          echo "部署目标：$TARGET"
+
+      - name: Deploy dist to server
         uses: easingthemes/ssh-deploy@main
         with:
           SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
           REMOTE_HOST: ${{ secrets.DEPLOY_HOST }}
           REMOTE_USER: ${{ secrets.DEPLOY_USER }}
+          REMOTE_PORT: ${{ secrets.DEPLOY_PORT || '22' }}
           TARGET: ${{ secrets.DEPLOY_PATH }}
-          SOURCE: "./" # ⚠️ 改成 ./ 表示上传当前目录所有文件（会自动遵守 .gitignore）
-          ARGS: "-avz --delete --exclude 'node_modules' --exclude '.git'" # 排除 node_modules 和 .git 防止删库
+          # 只上传构建产物，不上传源码/依赖
+          SOURCE: 'dist/'
+          # -r 递归 -l 链接 -p 权限 -t 时间 -g 组 -o 属主 -D 设备 -z 压缩 -v 日志 -c 校验
+          # --delete 清掉服务器上已不存在的旧文件（hash 文件名场景必须加）
+          ARGS: '-rlgoDzvc -i --delete'
+          # 上传完成后可执行远端命令（例如重载 nginx；宝塔下如需 sudo 请先配置免密）
+          # SCRIPT_BEFORE: |
+          #   echo "deploy start: $(date)"
+          # SCRIPT_AFTER: |
+          #   echo "deploy done: $(date)"
