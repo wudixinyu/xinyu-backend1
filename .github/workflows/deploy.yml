@@ -223,6 +223,14 @@ jobs:
             exit 1
           fi
           command -v curl >/dev/null 2>&1 || echo "警告：未见 curl，健康检查将退化为进程存活探测"
+          # 依赖端口探测：仅提示，不中断（数据库/Redis 部署在外部时忽略即可）
+          for p in 3306 6379; do
+            if (echo > /dev/tcp/127.0.0.1/$p) >/dev/null 2>&1; then
+              echo "本机端口 $p：可连通"
+            else
+              echo "本机端口 $p：未监听"
+            fi
+          done
           echo "磁盘可用空间：$(df -h . | tail -1)"
           REMOTE
 
@@ -277,7 +285,7 @@ jobs:
             done
           fi
           if [ ! -x "$JAVA_BIN" ]; then
-            echo "未找到 JDK，中止且不动线上 jar"
+            echo "::error title=未找到 JDK::已尝试 PATH 及 /www/server/java、/usr/lib/jvm、/usr/local、/opt；可配置 Secret DEPLOY_JAVA_HOME 指定 JDK 目录"
             exit 1
           fi
           echo "JDK 路径：$JAVA_BIN"
@@ -327,7 +335,8 @@ jobs:
             if ss -lnt 2>/dev/null | awk '{print $4}' | grep -q ":$APP_PORT\$"; then
               echo "端口 $APP_PORT 仍被占用："
               ss -lntp 2>/dev/null | grep ":$APP_PORT\$" || true
-              echo "端口未释放，新进程必然启动失败，中止且不动线上 jar"
+              OCCUPIED="$(ss -lntp 2>/dev/null | grep ":$APP_PORT\$" | head -3 | tr '\n' '~' | sed 's/~/ %0A /g')"
+              echo "::error title=端口被占用::端口 $APP_PORT 已被占用，新进程无法启动，已中止且未改动线上 jar。$OCCUPIED"
               exit 1
             fi
           fi
@@ -383,7 +392,14 @@ jobs:
           if [ "$OK" != "1" ]; then
             echo "----- logs/app.out 最后 120 行 -----"
             tail -n 120 logs/app.out || true
-            echo "健康检查未通过（http://127.0.0.1:$APP_PORT/ 无响应）"
+            # 关键错误行抛成 annotation，这样在 Actions 页面不用登录服务器就能看到根因
+            ERR="$(grep -aiE 'ERROR|Exception|Caused by|Access denied|Unknown database|Connection refused|already in use|Communications link failure' logs/app.out 2>/dev/null \
+                   | tail -n 6 | tr '\n' '~' | sed 's/~/ %0A /g' | cut -c1-900)"
+            if [ -n "$ERR" ]; then
+              echo "::error title=启动失败关键日志::$ERR"
+            else
+              echo "::error title=启动失败::日志中未匹配到典型错误行，请到服务器查看 $TARGET/logs/app.out"
+            fi
             exit 1
           fi
           echo "健康检查通过：http://127.0.0.1:$APP_PORT/ 正常响应"
