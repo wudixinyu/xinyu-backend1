@@ -335,7 +335,8 @@ jobs:
             if ss -lnt 2>/dev/null | awk '{print $4}' | grep -q ":$APP_PORT\$"; then
               echo "端口 $APP_PORT 仍被占用："
               ss -lntp 2>/dev/null | grep ":$APP_PORT\$" || true
-              OCCUPIED="$(ss -lntp 2>/dev/null | grep ":$APP_PORT\$" | head -3 | tr '\n' '~' | sed 's/~/ %0A /g')"
+              OCCUPIED="$( { ss -lntp 2>/dev/null | grep ":$APP_PORT\$"; ps -eo pid,etime,cmd 2>/dev/null | grep -E 'java .*jar' | grep -v grep; } \
+                           | head -5 | tr '\n' '~' | sed 's/~/ %0A /g' | cut -c1-800)"
               echo "::error title=端口被占用::端口 $APP_PORT 已被占用，新进程无法启动，已中止且未改动线上 jar。$OCCUPIED"
               exit 1
             fi
@@ -400,6 +401,12 @@ jobs:
             else
               echo "::error title=启动失败::日志中未匹配到典型错误行，请到服务器查看 $TARGET/logs/app.out"
             fi
+            # 启动失败的进程必须清理掉，否则它会占着端口，让下一次部署误判「端口被占用」
+            kill "$NEW_PID" 2>/dev/null || true
+            for i in $(seq 1 10); do kill -0 "$NEW_PID" 2>/dev/null || break; sleep 1; done
+            kill -9 "$NEW_PID" 2>/dev/null || true
+            rm -f app.pid
+            echo "已清理本次启动失败的进程"
             exit 1
           fi
           echo "健康检查通过：http://127.0.0.1:$APP_PORT/ 正常响应"
@@ -422,8 +429,26 @@ jobs:
             "TARGET='$TARGET' APP_PORT='${APP_PORT:-8080}' JVM_OPTS='$JVM_OPTS' EXTRA_ARGS='$EXTRA_ARGS' PROFILE_DIR='${PROFILE_DIR:-}' JAVA_HOME_DIR='${JAVA_HOME_DIR:-}' bash -s" <<'REMOTE'
           set -u
           cd "$TARGET" || exit 1
+
+          # 先清理残留进程（包括本次启动失败的），无论有没有备份都要做，否则端口一直被占
+          KILL_PID=""
+          if [ -f app.pid ]; then
+            KILL_PID="$(cat app.pid 2>/dev/null || true)"
+            kill -0 "$KILL_PID" 2>/dev/null || KILL_PID=""
+          fi
+          if [ -z "$KILL_PID" ]; then
+            KILL_PID="$(pgrep -f 'java .*app\.jar' 2>/dev/null | head -1 || true)"
+          fi
+          if [ -n "$KILL_PID" ]; then
+            echo "清理残留进程 PID=$KILL_PID"
+            kill "$KILL_PID" 2>/dev/null || true
+            for i in $(seq 1 20); do kill -0 "$KILL_PID" 2>/dev/null || break; sleep 1; done
+            kill -9 "$KILL_PID" 2>/dev/null || true
+          fi
+          rm -f app.pid
+
           if [ ! -f app.jar.bak ]; then
-            echo "无 app.jar.bak，无法回滚，请手动处理"
+            echo "无 app.jar.bak（首次部署），已清理残留进程，无需回滚"
             exit 0
           fi
           mv -f app.jar.bak app.jar
@@ -445,13 +470,6 @@ jobs:
           if [ ! -x "$JAVA_BIN" ]; then
             echo "未找到 JDK，无法重启回滚后的版本，请手动启动"
             exit 0
-          fi
-
-          KILL_PID="$(pgrep -f 'java .*app\.jar' 2>/dev/null | head -1 || true)"
-          if [ -n "$KILL_PID" ]; then
-            kill "$KILL_PID" 2>/dev/null || true
-            for i in $(seq 1 20); do kill -0 "$KILL_PID" 2>/dev/null || break; sleep 1; done
-            kill -9 "$KILL_PID" 2>/dev/null || true
           fi
 
           DEFAULT_JVM_OPTS="-Xms512m -Xmx1024m -Dfile.encoding=UTF-8 -Duser.timezone=Asia/Shanghai"
