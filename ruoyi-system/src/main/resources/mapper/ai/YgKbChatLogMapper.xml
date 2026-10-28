@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.system.mapper.YgKbChatLogMapper">
+
+    <resultMap type="YgKbChatLog" id="YgKbChatLogResult">
+        <result property="logId"      column="log_id"      />
+        <result property="kbId"       column="kb_id"       />
+        <result property="question"   column="question"    />
+        <result property="answer"     column="answer"      />
+        <result property="sourceJson" column="source_json" />
+        <result property="costMs"     column="cost_ms"     />
+        <result property="createBy"   column="create_by"   />
+        <result property="createTime" column="create_time" />
+    </resultMap>
+
+    <select id="selectYgKbChatLogList" parameterType="YgKbChatLog" resultMap="YgKbChatLogResult">
+        select log_id, kb_id, question, answer, source_json, cost_ms, create_by, create_time from yg_kb_chat_log
+        <where>
+            <if test="kbId != null"> and kb_id = #{kbId}</if>
+            <if test="createBy != null and createBy != ''"> and create_by = #{createBy}</if>
+        </where>
+        order by log_id desc
+    </select>
+
+    <insert id="insertYgKbChatLog" parameterType="YgKbChatLog" useGeneratedKeys="true" keyProperty="logId">
+        insert into yg_kb_chat_log
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="kbId != null">kb_id,</if>
+            <if test="question != null">question,</if>
+            <if test="answer != null">answer,</if>
+            <if test="sourceJson != null">source_json,</if>
+            <if test="costMs != null">cost_ms,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="kbId != null">#{kbId},</if>
+            <if test="question != null">#{question},</if>
+            <if test="answer != null">#{answer},</if>
+            <if test="sourceJson != null">#{sourceJson},</if>
+            <if test="costMs != null">#{costMs},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+         </trim>
+    </insert>
+</mapper>

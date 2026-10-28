@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.system.mapper.YgToolWebsiteMapper">
+    
+    <resultMap type="YgToolWebsite" id="YgToolWebsiteResult">
+        <result property="toolId"        column="tool_id"        />
+        <result property="toolName"      column="tool_name"      />
+        <result property="websiteUrl"    column="website_url"    />
+        <result property="category"      column="category"       />
+        <result property="createBy"      column="create_by"      />
+        <result property="createTime"    column="create_time"    />
+        <result property="updateBy"      column="update_by"      />
+        <result property="updateTime"    column="update_time"    />
+        <result property="remark"        column="remark"         />
+    </resultMap>
+
+    <sql id="selectYgToolWebsiteVo">
+        select tool_id, tool_name, website_url, category, create_by, create_time, update_by, update_time, remark from yg_tool_website
+    </sql>
+
+    <select id="selectYgToolWebsiteList" parameterType="YgToolWebsite" resultMap="YgToolWebsiteResult">
+        <include refid="selectYgToolWebsiteVo"/>
+        <where>  
+            <if test="toolName != null  and toolName != ''"> and tool_name like concat('%', #{toolName}, '%')</if>
+            <if test="websiteUrl != null  and websiteUrl != ''"> and website_url like concat('%', #{websiteUrl}, '%')</if>
+            <if test="category != null  and category != ''"> and category = #{category}</if>
+        </where>
+        order by tool_id desc
+    </select>
+    
+    <select id="selectYgToolWebsiteByToolId" parameterType="Long" resultMap="YgToolWebsiteResult">
+        <include refid="selectYgToolWebsiteVo"/>
+        where tool_id = #{toolId}
+    </select>
+
+    <insert id="insertYgToolWebsite" parameterType="YgToolWebsite" useGeneratedKeys="true" keyProperty="toolId">
+        insert into yg_tool_website
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="toolName != null and toolName != ''">tool_name,</if>
+            <if test="websiteUrl != null and websiteUrl != ''">website_url,</if>
+            <if test="category != null and category != ''">category,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+            <if test="remark != null">remark,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="toolName != null and toolName != ''">#{toolName},</if>
+            <if test="websiteUrl != null and websiteUrl != ''">#{websiteUrl},</if>
+            <if test="category != null and category != ''">#{category},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+            <if test="remark != null">#{remark},</if>
+         </trim>
+    </insert>
+
+    <update id="updateYgToolWebsite" parameterType="YgToolWebsite">
+        update yg_tool_website
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="toolName != null and toolName != ''">tool_name = #{toolName},</if>
+            <if test="websiteUrl != null and websiteUrl != ''">website_url = #{websiteUrl},</if>
+            <if test="category != null and category != ''">category = #{category},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="remark != null">remark = #{remark},</if>
+        </trim>
+        where tool_id = #{toolId}
+    </update>
+
+    <delete id="deleteYgToolWebsiteByToolId" parameterType="Long">
+        delete from yg_tool_website where tool_id = #{toolId}
+    </delete>
+
+    <delete id="deleteYgToolWebsiteByToolIds" parameterType="String">
+        delete from yg_tool_website where tool_id in 
+        <foreach item="toolId" collection="array" open="(" separator="," close=")">
+            #{toolId}
+        </foreach>
+    </delete>
+</mapper>

@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.system.mapper.YgFacebookAdsDailyMapper">
+
+    <resultMap type="YgFacebookAdsDaily" id="YgFacebookAdsDailyResult">
+        <result property="dailyId"      column="daily_id"       />
+        <result property="reportDate"   column="report_date"    />
+        <result property="accountId"    column="account_id"     />
+        <result property="campaignName" column="campaign_name"  />
+        <result property="impressions"  column="impressions"    />
+        <result property="clicks"       column="clicks"         />
+        <result property="spend"        column="spend"          />
+        <result property="sales"        column="sales"          />
+        <result property="orders"       column="orders"         />
+        <result property="createBy"     column="create_by"      />
+        <result property="createTime"   column="create_time"    />
+        <result property="updateBy"     column="update_by"      />
+        <result property="updateTime"   column="update_time"    />
+        <result property="remark"       column="remark"         />
+    </resultMap>
+
+    <sql id="selectYgFacebookAdsDailyVo">
+        select daily_id, report_date, account_id, campaign_name, impressions, clicks, spend, sales, orders,
+        create_by, create_time, update_by, update_time, remark from yg_facebook_ads_daily
+    </sql>
+
+    <select id="selectYgFacebookAdsDailyList" parameterType="YgFacebookAdsDaily" resultMap="YgFacebookAdsDailyResult">
+        <include refid="selectYgFacebookAdsDailyVo"/>
+        <where>
+            <if test="campaignName != null and campaignName != ''"> and campaign_name like concat('%', #{campaignName}, '%')</if>
+            <if test="accountId != null and accountId != ''"> and account_id = #{accountId}</if>
+            <if test="params.beginTime != null and params.beginTime != ''"> and report_date &gt;= #{params.beginTime}</if>
+            <if test="params.endTime != null and params.endTime != ''"> and report_date &lt;= #{params.endTime}</if>
+        </where>
+        order by report_date desc, daily_id desc
+    </select>
+
+    <select id="selectYgFacebookAdsDailyByDailyId" parameterType="Long" resultMap="YgFacebookAdsDailyResult">
+        <include refid="selectYgFacebookAdsDailyVo"/>
+        where daily_id = #{dailyId}
+    </select>
+
+    <select id="selectByUniqueKey" resultMap="YgFacebookAdsDailyResult">
+        <include refid="selectYgFacebookAdsDailyVo"/>
+        where report_date = date(#{reportDate}) and account_id = #{accountId} and campaign_name = #{campaignName}
+        limit 1
+    </select>
+
+    <insert id="insertYgFacebookAdsDaily" parameterType="YgFacebookAdsDaily" useGeneratedKeys="true" keyProperty="dailyId">
+        insert into yg_facebook_ads_daily
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="reportDate != null">report_date,</if>
+            <if test="accountId != null">account_id,</if>
+            <if test="campaignName != null and campaignName != ''">campaign_name,</if>
+            <if test="impressions != null">impressions,</if>
+            <if test="clicks != null">clicks,</if>
+            <if test="spend != null">spend,</if>
+            <if test="sales != null">sales,</if>
+            <if test="orders != null">orders,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+            <if test="remark != null">remark,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="reportDate != null">#{reportDate},</if>
+            <if test="accountId != null">#{accountId},</if>
+            <if test="campaignName != null and campaignName != ''">#{campaignName},</if>
+            <if test="impressions != null">#{impressions},</if>
+            <if test="clicks != null">#{clicks},</if>
+            <if test="spend != null">#{spend},</if>
+            <if test="sales != null">#{sales},</if>
+            <if test="orders != null">#{orders},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+            <if test="remark != null">#{remark},</if>
+         </trim>
+    </insert>
+
+    <update id="updateYgFacebookAdsDaily" parameterType="YgFacebookAdsDaily">
+        update yg_facebook_ads_daily
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="reportDate != null">report_date = #{reportDate},</if>
+            <if test="accountId != null">account_id = #{accountId},</if>
+            <if test="campaignName != null and campaignName != ''">campaign_name = #{campaignName},</if>
+            <if test="impressions != null">impressions = #{impressions},</if>
+            <if test="clicks != null">clicks = #{clicks},</if>
+            <if test="spend != null">spend = #{spend},</if>
+            <if test="sales != null">sales = #{sales},</if>
+            <if test="orders != null">orders = #{orders},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="remark != null">remark = #{remark},</if>
+        </trim>
+        where daily_id = #{dailyId}
+    </update>
+
+    <delete id="deleteYgFacebookAdsDailyByDailyIds" parameterType="String">
+        delete from yg_facebook_ads_daily where daily_id in
+        <foreach item="dailyId" collection="array" open="(" separator="," close=")">
+            #{dailyId}
+        </foreach>
+    </delete>
+
+    <!-- 统计公共查询条件 -->
+    <sql id="statsWhere">
+        <where>
+            <if test="campaignName != null and campaignName != ''"> and campaign_name like concat('%', #{campaignName}, '%')</if>
+            <if test="accountId != null and accountId != ''"> and account_id = #{accountId}</if>
+            <if test="params.beginTime != null and params.beginTime != ''"> and report_date &gt;= #{params.beginTime}</if>
+            <if test="params.endTime != null and params.endTime != ''"> and report_date &lt;= #{params.endTime}</if>
+        </where>
+    </sql>
+
+    <select id="selectAdsSummary" parameterType="YgFacebookAdsDaily" resultType="map">
+        select ifnull(sum(impressions), 0) impressions,
+               ifnull(sum(clicks), 0)      clicks,
+               ifnull(sum(spend), 0)       spend,
+               ifnull(sum(sales), 0)       sales,
+               ifnull(sum(orders), 0)      orders,
+               round(sum(spend) / nullif(sum(sales), 0) * 100, 2) acos,
+               round(sum(clicks) / nullif(sum(impressions), 0) * 100, 2) ctr,
+               round(sum(orders) / nullif(sum(clicks), 0) * 100, 2) cvr
+        from yg_facebook_ads_daily
+        <include refid="statsWhere"/>
+    </select>
+
+    <select id="selectAdsTrend" parameterType="YgFacebookAdsDaily" resultType="map">
+        select date_format(report_date, '%Y-%m-%d') statDate,
+               ifnull(sum(impressions), 0) impressions,
+               ifnull(sum(clicks), 0)      clicks,
+               ifnull(sum(spend), 0)       spend,
+               ifnull(sum(sales), 0)       sales,
+               ifnull(sum(orders), 0)      orders,
+               round(sum(spend) / nullif(sum(sales), 0) * 100, 2) acos,
+               round(sum(clicks) / nullif(sum(impressions), 0) * 100, 2) ctr,
+               round(sum(orders) / nullif(sum(clicks), 0) * 100, 2) cvr
+        from yg_facebook_ads_daily
+        <include refid="statsWhere"/>
+        group by report_date
+        order by report_date
+    </select>
+
+    <select id="selectAdsCampaignStats" parameterType="YgFacebookAdsDaily" resultType="map">
+        select campaign_name campaignName,
+               ifnull(sum(impressions), 0) impressions,
+               ifnull(sum(clicks), 0)      clicks,
+               ifnull(sum(spend), 0)       spend,
+               ifnull(sum(sales), 0)       sales,
+               ifnull(sum(orders), 0)      orders,
+               round(sum(spend) / nullif(sum(sales), 0) * 100, 2) acos,
+               round(sum(clicks) / nullif(sum(impressions), 0) * 100, 2) ctr,
+               round(sum(orders) / nullif(sum(clicks), 0) * 100, 2) cvr
+        from yg_facebook_ads_daily
+        <include refid="statsWhere"/>
+        group by campaign_name
+        order by sum(spend) desc
+        limit 20
+    </select>
+</mapper>

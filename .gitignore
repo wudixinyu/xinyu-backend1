@@ -1,0 +1,35 @@
+# 编译输出
+target/
+build/
+out/
+*.class
+
+# 日志
+*.log
+logs/
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.settings/
+.project
+.classpath
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 依赖/缓存
+.gradle/
+.mvn/wrapper/maven-wrapper.jar
+node_modules/
+
+# 环境/敏感信息
+.env
+*.local
+
+# 本地助手记忆（个人工作日志，不入库）
+.workbuddy/memory/

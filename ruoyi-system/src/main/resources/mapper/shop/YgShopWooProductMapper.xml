@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.system.mapper.YgShopWooProductMapper">
+
+    <resultMap type="YgShopWooProduct" id="YgShopWooProductResult">
+        <result property="productId"      column="product_id"     />
+        <result property="storeId"        column="store_id"       />
+        <result property="storeName"      column="store_name"     />
+        <result property="wooProductId"   column="woo_product_id" />
+        <result property="name"           column="name"           />
+        <result property="sku"            column="sku"            />
+        <result property="type"           column="type"           />
+        <result property="status"         column="status"         />
+        <result property="price"          column="price"          />
+        <result property="regularPrice"   column="regular_price"  />
+        <result property="salePrice"      column="sale_price"     />
+        <result property="stockQuantity"  column="stock_quantity" />
+        <result property="stockStatus"    column="stock_status"   />
+        <result property="categories"     column="categories"     />
+        <result property="imageUrl"       column="image_url"      />
+        <result property="permalink"      column="permalink"      />
+        <result property="dateCreated"    column="date_created"   />
+        <result property="dateModified"   column="date_modified"  />
+        <result property="createTime"     column="create_time"    />
+        <result property="updateTime"     column="update_time"    />
+    </resultMap>
+
+    <sql id="selectYgShopWooProductVo">
+        select p.product_id, p.store_id, s.store_name, p.woo_product_id, p.name, p.sku, p.type, p.status,
+        p.price, p.regular_price, p.sale_price, p.stock_quantity, p.stock_status, p.categories,
+        p.image_url, p.permalink, p.date_created, p.date_modified, p.create_time, p.update_time
+        from yg_shop_woo_product p
+        left join yg_shop_store s on s.store_id = p.store_id
+    </sql>
+
+    <select id="selectYgShopWooProductList" parameterType="YgShopWooProduct" resultMap="YgShopWooProductResult">
+        <include refid="selectYgShopWooProductVo"/>
+        <where>
+            <if test="storeId != null"> and p.store_id = #{storeId}</if>
+            <if test="name != null and name != ''"> and p.name like concat('%', #{name}, '%')</if>
+            <if test="sku != null and sku != ''"> and p.sku like concat('%', #{sku}, '%')</if>
+            <if test="status != null and status != ''"> and p.status = #{status}</if>
+            <if test="stockStatus != null and stockStatus != ''"> and p.stock_status = #{stockStatus}</if>
+        </where>
+        order by p.product_id desc
+    </select>
+
+    <select id="selectYgShopWooProductByProductId" parameterType="Long" resultMap="YgShopWooProductResult">
+        <include refid="selectYgShopWooProductVo"/>
+        where p.product_id = #{productId}
+    </select>
+
+    <insert id="upsertYgShopWooProduct" parameterType="YgShopWooProduct">
+        insert into yg_shop_woo_product
+        (store_id, woo_product_id, name, sku, type, status, price, regular_price, sale_price,
+         stock_quantity, stock_status, categories, image_url, permalink, date_created, date_modified,
+         create_time, update_time)
+        values
+        (#{storeId}, #{wooProductId}, #{name}, #{sku}, #{type}, #{status}, #{price}, #{regularPrice}, #{salePrice},
+         #{stockQuantity}, #{stockStatus}, #{categories}, #{imageUrl}, #{permalink}, #{dateCreated}, #{dateModified},
+         #{createTime}, #{updateTime})
+        on duplicate key update
+            name = values(name),
+            sku = values(sku),
+            type = values(type),
+            status = values(status),
+            price = values(price),
+            regular_price = values(regular_price),
+            sale_price = values(sale_price),
+            stock_quantity = values(stock_quantity),
+            stock_status = values(stock_status),
+            categories = values(categories),
+            image_url = values(image_url),
+            permalink = values(permalink),
+            date_created = values(date_created),
+            date_modified = values(date_modified),
+            update_time = values(update_time)
+    </insert>
+
+    <delete id="deleteYgShopWooProductByProductIds" parameterType="String">
+        delete from yg_shop_woo_product where product_id in
+        <foreach item="productId" collection="array" open="(" separator="," close=")">
+            #{productId}
+        </foreach>
+    </delete>
+
+    <delete id="deleteByStoreAndWooProductId">
+        delete from yg_shop_woo_product where store_id = #{storeId} and woo_product_id = #{wooProductId}
+    </delete>
+</mapper>

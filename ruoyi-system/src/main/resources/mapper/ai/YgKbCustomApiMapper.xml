@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.system.mapper.YgKbCustomApiMapper">
+
+    <resultMap type="YgKbCustomApi" id="YgKbCustomApiResult">
+        <result property="id"               column="id"                />
+        <result property="name"             column="name"              />
+        <result property="baseUrl"          column="base_url"          />
+        <result property="apiKey"           column="api_key"           />
+        <result property="chatModel"        column="chat_model"        />
+        <result property="chatTemperature"  column="chat_temperature"  />
+        <result property="embeddingModel"   column="embedding_model"   />
+        <result property="embeddingDim"     column="embedding_dim"     />
+        <result property="timeoutSeconds"   column="timeout_seconds"   />
+        <result property="createBy"         column="create_by"         />
+        <result property="createTime"       column="create_time"       />
+        <result property="updateBy"         column="update_by"         />
+        <result property="updateTime"       column="update_time"       />
+    </resultMap>
+
+    <sql id="selectYgKbCustomApiVo">
+        select id, name, base_url, api_key, chat_model, chat_temperature, embedding_model,
+        embedding_dim, timeout_seconds, create_by, create_time, update_by, update_time
+        from yg_kb_custom_api
+    </sql>
+
+    <select id="selectYgKbCustomApiList" parameterType="YgKbCustomApi" resultMap="YgKbCustomApiResult">
+        <include refid="selectYgKbCustomApiVo"/>
+        <where>
+            <if test="name != null and name != ''"> and name like concat('%', #{name}, '%')</if>
+        </where>
+        order by id asc
+    </select>
+
+    <select id="selectYgKbCustomApiById" parameterType="Long" resultMap="YgKbCustomApiResult">
+        <include refid="selectYgKbCustomApiVo"/>
+        where id = #{id}
+    </select>
+
+    <insert id="insertYgKbCustomApi" parameterType="YgKbCustomApi" useGeneratedKeys="true" keyProperty="id">
+        insert into yg_kb_custom_api (
+            name, base_url, api_key, chat_model, chat_temperature, embedding_model,
+            embedding_dim, timeout_seconds, create_by, create_time
+        ) values (
+            #{name}, #{baseUrl}, #{apiKey}, #{chatModel}, #{chatTemperature}, #{embeddingModel},
+            #{embeddingDim}, #{timeoutSeconds}, #{createBy}, sysdate()
+        )
+    </insert>
+
+    <update id="updateYgKbCustomApi" parameterType="YgKbCustomApi">
+        update yg_kb_custom_api
+        <set>
+            <if test="name != null">name = #{name},</if>
+            <if test="baseUrl != null">base_url = #{baseUrl},</if>
+            <if test="apiKey != null">api_key = #{apiKey},</if>
+            <if test="chatModel != null">chat_model = #{chatModel},</if>
+            <if test="chatTemperature != null">chat_temperature = #{chatTemperature},</if>
+            <if test="embeddingModel != null">embedding_model = #{embeddingModel},</if>
+            <if test="embeddingDim != null">embedding_dim = #{embeddingDim},</if>
+            <if test="timeoutSeconds != null">timeout_seconds = #{timeoutSeconds},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            update_time = sysdate()
+        </set>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteYgKbCustomApiByIds" parameterType="String">
+        delete from yg_kb_custom_api where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+    <select id="countUsage" parameterType="Long" resultType="int">
+        select count(*) from yg_kb_model_config
+        where custom_chat_api_id = #{id} or custom_embedding_api_id = #{id}
+    </select>
+</mapper>

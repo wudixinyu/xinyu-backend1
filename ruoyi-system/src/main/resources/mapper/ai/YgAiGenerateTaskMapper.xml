@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.system.mapper.YgAiGenerateTaskMapper">
+    
+    <resultMap type="YgAiGenerateTask" id="YgAiGenerateTaskResult">
+        <result property="taskId"       column="task_id"        />
+        <result property="canvasId"     column="canvas_id"      />
+        <result property="nodeId"       column="node_id"        />
+        <result property="modelId"      column="model_id"       />
+        <result property="generateType" column="generate_type"  />
+        <result property="prompt"       column="prompt"         />
+        <result property="status"       column="status"         />
+        <result property="resultText"   column="result_text"    />
+        <result property="resultUrl"    column="result_url"     />
+        <result property="mediaId"      column="media_id"       />
+        <result property="errorMsg"     column="error_msg"      />
+        <result property="createBy"     column="create_by"      />
+        <result property="createTime"   column="create_time"    />
+        <result property="updateTime"   column="update_time"    />
+    </resultMap>
+
+    <sql id="selectYgAiGenerateTaskVo">
+        select task_id, canvas_id, node_id, model_id, generate_type, prompt, status,
+        result_text, result_url, media_id, error_msg, create_by, create_time, update_time from yg_ai_generate_task
+    </sql>
+
+    <select id="selectYgAiGenerateTaskByTaskId" parameterType="Long" resultMap="YgAiGenerateTaskResult">
+        <include refid="selectYgAiGenerateTaskVo"/>
+        where task_id = #{taskId}
+    </select>
+
+    <select id="selectYgAiGenerateTaskByTaskIds" resultMap="YgAiGenerateTaskResult">
+        <include refid="selectYgAiGenerateTaskVo"/>
+        where task_id in
+        <foreach item="taskId" collection="taskIds" open="(" separator="," close=")">
+            #{taskId}
+        </foreach>
+    </select>
+
+    <insert id="insertYgAiGenerateTask" parameterType="YgAiGenerateTask" useGeneratedKeys="true" keyProperty="taskId">
+        insert into yg_ai_generate_task
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="canvasId != null">canvas_id,</if>
+            <if test="nodeId != null">node_id,</if>
+            <if test="modelId != null">model_id,</if>
+            <if test="generateType != null">generate_type,</if>
+            <if test="prompt != null and prompt != ''">prompt,</if>
+            <if test="status != null">status,</if>
+            <if test="resultText != null">result_text,</if>
+            <if test="resultUrl != null">result_url,</if>
+            <if test="mediaId != null">media_id,</if>
+            <if test="errorMsg != null">error_msg,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateTime != null">update_time,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="canvasId != null">#{canvasId},</if>
+            <if test="nodeId != null">#{nodeId},</if>
+            <if test="modelId != null">#{modelId},</if>
+            <if test="generateType != null">#{generateType},</if>
+            <if test="prompt != null and prompt != ''">#{prompt},</if>
+            <if test="status != null">#{status},</if>
+            <if test="resultText != null">#{resultText},</if>
+            <if test="resultUrl != null">#{resultUrl},</if>
+            <if test="mediaId != null">#{mediaId},</if>
+            <if test="errorMsg != null">#{errorMsg},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+         </trim>
+    </insert>
+
+    <update id="updateYgAiGenerateTask" parameterType="YgAiGenerateTask">
+        update yg_ai_generate_task
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="status != null">status = #{status},</if>
+            <if test="resultText != null">result_text = #{resultText},</if>
+            <if test="resultUrl != null">result_url = #{resultUrl},</if>
+            <if test="mediaId != null">media_id = #{mediaId},</if>
+            <if test="errorMsg != null">error_msg = #{errorMsg},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </trim>
+        where task_id = #{taskId}
+    </update>
+</mapper>

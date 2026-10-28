@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.system.mapper.YgUserCardPackMapper">
+
+    <resultMap type="YgUserCardPack" id="YgUserCardPackResult">
+        <result property="packId"     column="pack_id"     />
+        <result property="userId"     column="user_id"     />
+        <result property="packName"   column="pack_name"   />
+        <result property="cardCount"  column="card_count"  />
+        <result property="userName"   column="user_name"   />
+        <result property="nickName"   column="nick_name"   />
+        <result property="coverUrl"   column="cover_url"   />
+        <result property="createTime" column="create_time" />
+        <result property="remark"     column="remark"      />
+    </resultMap>
+
+    <sql id="selectYgUserCardPackVo">
+        select p.pack_id, p.user_id, p.pack_name, p.create_time, p.remark,
+               u.user_name, u.nick_name,
+               (select count(1) from yg_user_card_pack_item i where i.pack_id = p.pack_id) as card_count,
+               (select c.image_url from yg_user_card_pack_item i2
+                  left join yg_card_info c on c.card_id = i2.card_id
+                 where i2.pack_id = p.pack_id order by i2.item_id limit 1) as cover_url
+        from yg_user_card_pack p
+        left join sys_user u on u.user_id = p.user_id
+    </sql>
+
+    <select id="selectYgUserCardPackList" parameterType="YgUserCardPack" resultMap="YgUserCardPackResult">
+        <include refid="selectYgUserCardPackVo"/>
+        <where>
+            <if test="userId != null "> and p.user_id = #{userId}</if>
+            <if test="packName != null  and packName != ''"> and p.pack_name like concat('%', #{packName}, '%')</if>
+            <if test="params.beginCreateTime != null and params.beginCreateTime != '' and params.endCreateTime != null and params.endCreateTime != ''"> and p.create_time between #{params.beginCreateTime} and #{params.endCreateTime}</if>
+        </where>
+    </select>
+
+    <select id="selectYgUserCardPackByPackId" parameterType="Long" resultMap="YgUserCardPackResult">
+        <include refid="selectYgUserCardPackVo"/>
+        where p.pack_id = #{packId}
+    </select>
+
+    <insert id="insertYgUserCardPack" parameterType="YgUserCardPack" useGeneratedKeys="true" keyProperty="packId">
+        insert into yg_user_card_pack
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="userId != null">user_id,</if>
+            <if test="packName != null and packName != ''">pack_name,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="remark != null">remark,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="userId != null">#{userId},</if>
+            <if test="packName != null and packName != ''">#{packName},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="remark != null">#{remark},</if>
+         </trim>
+    </insert>
+
+    <update id="updateYgUserCardPack" parameterType="YgUserCardPack">
+        update yg_user_card_pack
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="userId != null">user_id = #{userId},</if>
+            <if test="packName != null and packName != ''">pack_name = #{packName},</if>
+            <if test="createTime != null">create_time = #{createTime},</if>
+            <if test="remark != null">remark = #{remark},</if>
+        </trim>
+        where pack_id = #{packId}
+    </update>
+
+    <delete id="deleteYgUserCardPackByPackId" parameterType="Long">
+        delete from yg_user_card_pack where pack_id = #{packId}
+    </delete>
+
+    <delete id="deleteYgUserCardPackByPackIds" parameterType="String">
+        delete from yg_user_card_pack where pack_id in
+        <foreach item="packId" collection="array" open="(" separator="," close=")">
+            #{packId}
+        </foreach>
+    </delete>
+</mapper>

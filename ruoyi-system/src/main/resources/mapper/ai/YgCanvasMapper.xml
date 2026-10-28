@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.system.mapper.YgCanvasMapper">
+    
+    <resultMap type="YgCanvas" id="YgCanvasResult">
+        <result property="canvasId"      column="canvas_id"      />
+        <result property="canvasName"    column="canvas_name"    />
+        <result property="content"       column="content"        />
+        <result property="thumbnail"     column="thumbnail"      />
+        <result property="canvasWidth"   column="canvas_width"   />
+        <result property="canvasHeight"  column="canvas_height"  />
+        <result property="status"        column="status"         />
+        <result property="delFlag"       column="del_flag"       />
+        <result property="createBy"      column="create_by"      />
+        <result property="createTime"    column="create_time"    />
+        <result property="updateBy"      column="update_by"      />
+        <result property="updateTime"    column="update_time"    />
+        <result property="remark"        column="remark"         />
+    </resultMap>
+
+    <!-- 列表查询不取 content 大字段，避免分页加载全部画布 JSON -->
+    <sql id="selectYgCanvasListVo">
+        select canvas_id, canvas_name, thumbnail, canvas_width, canvas_height, status, del_flag,
+        create_by, create_time, update_by, update_time, remark from yg_canvas
+    </sql>
+
+    <sql id="selectYgCanvasFullVo">
+        select canvas_id, canvas_name, content, thumbnail, canvas_width, canvas_height, status, del_flag,
+        create_by, create_time, update_by, update_time, remark from yg_canvas
+    </sql>
+
+    <select id="selectYgCanvasList" parameterType="YgCanvas" resultMap="YgCanvasResult">
+        <include refid="selectYgCanvasListVo"/>
+        <where>  
+            del_flag = '0'
+            <if test="canvasName != null  and canvasName != ''"> and canvas_name like concat('%', #{canvasName}, '%')</if>
+            <if test="status != null  and status != ''"> and status = #{status}</if>
+        </where>
+        order by canvas_id desc
+    </select>
+    
+    <select id="selectYgCanvasByCanvasId" parameterType="Long" resultMap="YgCanvasResult">
+        <include refid="selectYgCanvasFullVo"/>
+        where canvas_id = #{canvasId} and del_flag = '0'
+    </select>
+
+    <insert id="insertYgCanvas" parameterType="YgCanvas" useGeneratedKeys="true" keyProperty="canvasId">
+        insert into yg_canvas
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="canvasName != null and canvasName != ''">canvas_name,</if>
+            <if test="content != null and content != ''">content,</if>
+            <if test="thumbnail != null">thumbnail,</if>
+            <if test="canvasWidth != null">canvas_width,</if>
+            <if test="canvasHeight != null">canvas_height,</if>
+            <if test="status != null">status,</if>
+            <if test="delFlag != null">del_flag,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+            <if test="remark != null">remark,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="canvasName != null and canvasName != ''">#{canvasName},</if>
+            <if test="content != null and content != ''">#{content},</if>
+            <if test="thumbnail != null">#{thumbnail},</if>
+            <if test="canvasWidth != null">#{canvasWidth},</if>
+            <if test="canvasHeight != null">#{canvasHeight},</if>
+            <if test="status != null">#{status},</if>
+            <if test="delFlag != null">#{delFlag},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+            <if test="remark != null">#{remark},</if>
+         </trim>
+    </insert>
+
+    <update id="updateYgCanvas" parameterType="YgCanvas">
+        update yg_canvas
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="canvasName != null and canvasName != ''">canvas_name = #{canvasName},</if>
+            <if test="content != null and content != ''">content = #{content},</if>
+            <if test="thumbnail != null">thumbnail = #{thumbnail},</if>
+            <if test="canvasWidth != null">canvas_width = #{canvasWidth},</if>
+            <if test="canvasHeight != null">canvas_height = #{canvasHeight},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="remark != null">remark = #{remark},</if>
+        </trim>
+        where canvas_id = #{canvasId}
+    </update>
+
+    <delete id="deleteYgCanvasByCanvasId" parameterType="Long">
+        delete from yg_canvas where canvas_id = #{canvasId}
+    </delete>
+
+    <delete id="deleteYgCanvasByCanvasIds" parameterType="String">
+        delete from yg_canvas where canvas_id in 
+        <foreach item="canvasId" collection="array" open="(" separator="," close=")">
+            #{canvasId}
+        </foreach>
+    </delete>
+</mapper>

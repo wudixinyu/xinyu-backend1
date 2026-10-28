@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.system.mapper.YgUserCollectionMapper">
+    
+    <resultMap type="YgUserCollection" id="YgUserCollectionResult">
+        <result property="collectId"  column="collect_id"  />
+        <result property="userId"     column="user_id"     />
+        <result property="cardId"     column="card_id"     />
+        <result property="quantity"   column="quantity"    />
+        <result property="cnName"     column="cn_name"     />
+        <result property="imageUrl"   column="image_url"   />
+        <result property="createTime" column="create_time" />
+        <result property="remark"     column="remark"      />
+    </resultMap>
+
+    <sql id="selectYgUserCollectionVo">
+        select c.collect_id, c.user_id, c.card_id, c.quantity, c.create_time, c.remark,
+               i.cn_name, i.image_url
+        from yg_user_collection c
+        left join yg_card_info i on i.card_id = c.card_id
+    </sql>
+
+    <select id="selectYgUserCollectionList" parameterType="YgUserCollection" resultMap="YgUserCollectionResult">
+        <include refid="selectYgUserCollectionVo"/>
+        <where>  
+            <if test="userId != null "> and c.user_id = #{userId}</if>
+            <if test="cardId != null "> and c.card_id = #{cardId}</if>
+            <if test="params.beginCreateTime != null and params.beginCreateTime != '' and params.endCreateTime != null and params.endCreateTime != ''"> and c.create_time between #{params.beginCreateTime} and #{params.endCreateTime}</if>
+        </where>
+    </select>
+    
+    <select id="selectYgUserCollectionByCollectId" parameterType="Long" resultMap="YgUserCollectionResult">
+        <include refid="selectYgUserCollectionVo"/>
+        where c.collect_id = #{collectId}
+    </select>
+
+    <select id="selectYgUserCollectionByUserAndCard" resultMap="YgUserCollectionResult">
+        <include refid="selectYgUserCollectionVo"/>
+        where c.user_id = #{userId} and c.card_id = #{cardId}
+    </select>
+
+    <select id="selectCardIdsByUserId" parameterType="Long" resultType="Long">
+        select card_id from yg_user_collection where user_id = #{userId}
+    </select>
+
+    <insert id="insertYgUserCollection" parameterType="YgUserCollection" useGeneratedKeys="true" keyProperty="collectId">
+        insert into yg_user_collection
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="userId != null">user_id,</if>
+            <if test="cardId != null">card_id,</if>
+            <if test="quantity != null">quantity,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="remark != null">remark,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="userId != null">#{userId},</if>
+            <if test="cardId != null">#{cardId},</if>
+            <if test="quantity != null">#{quantity},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="remark != null">#{remark},</if>
+         </trim>
+    </insert>
+
+    <update id="updateYgUserCollection" parameterType="YgUserCollection">
+        update yg_user_collection
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="userId != null">user_id = #{userId},</if>
+            <if test="cardId != null">card_id = #{cardId},</if>
+            <if test="quantity != null">quantity = #{quantity},</if>
+            <if test="createTime != null">create_time = #{createTime},</if>
+            <if test="remark != null">remark = #{remark},</if>
+        </trim>
+        where collect_id = #{collectId}
+    </update>
+
+    <delete id="deleteYgUserCollectionByCollectId" parameterType="Long">
+        delete from yg_user_collection where collect_id = #{collectId}
+    </delete>
+
+    <delete id="deleteYgUserCollectionByCollectIds" parameterType="String">
+        delete from yg_user_collection where collect_id in 
+        <foreach item="collectId" collection="array" open="(" separator="," close=")">
+            #{collectId}
+        </foreach>
+    </delete>
+</mapper>

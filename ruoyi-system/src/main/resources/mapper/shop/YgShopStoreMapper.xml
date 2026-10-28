@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.system.mapper.YgShopStoreMapper">
+
+    <resultMap type="YgShopStore" id="YgShopStoreResult">
+        <result property="storeId"       column="store_id"        />
+        <result property="storeName"     column="store_name"      />
+        <result property="storeUrl"      column="store_url"       />
+        <result property="consumerKey"   column="consumer_key"    />
+        <result property="consumerSecret" column="consumer_secret" />
+        <result property="status"        column="status"          />
+        <result property="sort"          column="sort"            />
+        <result property="lastSyncTime"  column="last_sync_time"  />
+        <result property="createBy"      column="create_by"       />
+        <result property="createTime"    column="create_time"     />
+        <result property="updateBy"      column="update_by"       />
+        <result property="updateTime"    column="update_time"     />
+        <result property="remark"        column="remark"          />
+    </resultMap>
+
+    <sql id="selectYgShopStoreVo">
+        select store_id, store_name, store_url, consumer_key, consumer_secret, status, sort,
+        last_sync_time, create_by, create_time, update_by, update_time, remark from yg_shop_store
+    </sql>
+
+    <select id="selectYgShopStoreList" parameterType="YgShopStore" resultMap="YgShopStoreResult">
+        <include refid="selectYgShopStoreVo"/>
+        <where>
+            <if test="storeName != null and storeName != ''"> and store_name like concat('%', #{storeName}, '%')</if>
+            <if test="storeUrl != null and storeUrl != ''"> and store_url like concat('%', #{storeUrl}, '%')</if>
+            <if test="status != null and status != ''"> and status = #{status}</if>
+        </where>
+        order by sort asc, store_id asc
+    </select>
+
+    <select id="selectEnabledStoreOptions" resultMap="YgShopStoreResult">
+        select store_id, store_name, store_url, status, sort from yg_shop_store
+        where status = '0'
+        order by sort asc, store_id asc
+    </select>
+
+    <select id="selectEnabledStores" resultMap="YgShopStoreResult">
+        <include refid="selectYgShopStoreVo"/>
+        where status = '0'
+        order by sort asc, store_id asc
+    </select>
+
+    <select id="selectYgShopStoreByStoreId" parameterType="Long" resultMap="YgShopStoreResult">
+        <include refid="selectYgShopStoreVo"/>
+        where store_id = #{storeId}
+    </select>
+
+    <insert id="insertYgShopStore" parameterType="YgShopStore" useGeneratedKeys="true" keyProperty="storeId">
+        insert into yg_shop_store
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="storeName != null and storeName != ''">store_name,</if>
+            <if test="storeUrl != null and storeUrl != ''">store_url,</if>
+            <if test="consumerKey != null">consumer_key,</if>
+            <if test="consumerSecret != null">consumer_secret,</if>
+            <if test="status != null">status,</if>
+            <if test="sort != null">sort,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="remark != null">remark,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="storeName != null and storeName != ''">#{storeName},</if>
+            <if test="storeUrl != null and storeUrl != ''">#{storeUrl},</if>
+            <if test="consumerKey != null">#{consumerKey},</if>
+            <if test="consumerSecret != null">#{consumerSecret},</if>
+            <if test="status != null">#{status},</if>
+            <if test="sort != null">#{sort},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="remark != null">#{remark},</if>
+         </trim>
+    </insert>
+
+    <update id="updateYgShopStore" parameterType="YgShopStore">
+        update yg_shop_store
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="storeName != null and storeName != ''">store_name = #{storeName},</if>
+            <if test="storeUrl != null and storeUrl != ''">store_url = #{storeUrl},</if>
+            <if test="consumerKey != null">consumer_key = #{consumerKey},</if>
+            <if test="consumerSecret != null">consumer_secret = #{consumerSecret},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="sort != null">sort = #{sort},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="remark != null">remark = #{remark},</if>
+        </trim>
+        where store_id = #{storeId}
+    </update>
+
+    <delete id="deleteYgShopStoreByStoreIds" parameterType="String">
+        delete from yg_shop_store where store_id in
+        <foreach item="storeId" collection="array" open="(" separator="," close=")">
+            #{storeId}
+        </foreach>
+    </delete>
+
+    <update id="updateLastSyncTime">
+        update yg_shop_store set last_sync_time = #{lastSyncTime} where store_id = #{storeId}
+    </update>
+</mapper>

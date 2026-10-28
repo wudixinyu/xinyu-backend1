@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.system.mapper.YgMediaMapper">
+    
+    <resultMap type="YgMedia" id="YgMediaResult">
+        <result property="mediaId"       column="media_id"       />
+        <result property="mediaName"     column="media_name"     />
+        <result property="originalName"  column="original_name"  />
+        <result property="mediaType"     column="media_type"     />
+        <result property="fileUrl"       column="file_url"       />
+        <result property="fileSize"      column="file_size"      />
+        <result property="ext"           column="ext"            />
+        <result property="category"      column="category"       />
+        <result property="delFlag"       column="del_flag"       />
+        <result property="createBy"      column="create_by"      />
+        <result property="createTime"    column="create_time"    />
+        <result property="updateBy"      column="update_by"      />
+        <result property="updateTime"    column="update_time"    />
+        <result property="remark"        column="remark"         />
+    </resultMap>
+
+    <sql id="selectYgMediaVo">
+        select media_id, media_name, original_name, media_type, file_url, file_size, ext, category, del_flag,
+        create_by, create_time, update_by, update_time, remark from yg_media
+    </sql>
+
+    <select id="selectYgMediaList" parameterType="YgMedia" resultMap="YgMediaResult">
+        <include refid="selectYgMediaVo"/>
+        <where>  
+            del_flag = '0'
+            <if test="mediaName != null  and mediaName != ''"> and media_name like concat('%', #{mediaName}, '%')</if>
+            <if test="mediaType != null "> and media_type = #{mediaType}</if>
+            <if test="category != null  and category != ''"> and category = #{category}</if>
+        </where>
+        order by media_id desc
+    </select>
+    
+    <select id="selectYgMediaByMediaId" parameterType="Long" resultMap="YgMediaResult">
+        <include refid="selectYgMediaVo"/>
+        where media_id = #{mediaId} and del_flag = '0'
+    </select>
+
+    <insert id="insertYgMedia" parameterType="YgMedia" useGeneratedKeys="true" keyProperty="mediaId">
+        insert into yg_media
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="mediaName != null and mediaName != ''">media_name,</if>
+            <if test="originalName != null">original_name,</if>
+            <if test="mediaType != null">media_type,</if>
+            <if test="fileUrl != null and fileUrl != ''">file_url,</if>
+            <if test="fileSize != null">file_size,</if>
+            <if test="ext != null">ext,</if>
+            <if test="category != null">category,</if>
+            <if test="delFlag != null">del_flag,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+            <if test="remark != null">remark,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="mediaName != null and mediaName != ''">#{mediaName},</if>
+            <if test="originalName != null">#{originalName},</if>
+            <if test="mediaType != null">#{mediaType},</if>
+            <if test="fileUrl != null and fileUrl != ''">#{fileUrl},</if>
+            <if test="fileSize != null">#{fileSize},</if>
+            <if test="ext != null">#{ext},</if>
+            <if test="category != null">#{category},</if>
+            <if test="delFlag != null">#{delFlag},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+            <if test="remark != null">#{remark},</if>
+         </trim>
+    </insert>
+
+    <update id="updateYgMedia" parameterType="YgMedia">
+        update yg_media
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="mediaName != null and mediaName != ''">media_name = #{mediaName},</if>
+            <if test="mediaType != null">media_type = #{mediaType},</if>
+            <if test="fileUrl != null and fileUrl != ''">file_url = #{fileUrl},</if>
+            <if test="fileSize != null">file_size = #{fileSize},</if>
+            <if test="ext != null">ext = #{ext},</if>
+            <if test="category != null">category = #{category},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="remark != null">remark = #{remark},</if>
+        </trim>
+        where media_id = #{mediaId}
+    </update>
+
+    <delete id="deleteYgMediaByMediaId" parameterType="Long">
+        delete from yg_media where media_id = #{mediaId}
+    </delete>
+
+    <delete id="deleteYgMediaByMediaIds" parameterType="String">
+        delete from yg_media where media_id in 
+        <foreach item="mediaId" collection="array" open="(" separator="," close=")">
+            #{mediaId}
+        </foreach>
+    </delete>
+</mapper>

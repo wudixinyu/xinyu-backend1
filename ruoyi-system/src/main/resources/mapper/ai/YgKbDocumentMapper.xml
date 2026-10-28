@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.system.mapper.YgKbDocumentMapper">
+
+    <resultMap type="YgKbDocument" id="YgKbDocumentResult">
+        <result property="docId"       column="doc_id"       />
+        <result property="kbId"        column="kb_id"        />
+        <result property="fileName"    column="file_name"    />
+        <result property="filePath"    column="file_path"    />
+        <result property="fileType"    column="file_type"    />
+        <result property="fileSize"    column="file_size"    />
+        <result property="chunkCount"  column="chunk_count"  />
+        <result property="indexStatus" column="index_status" />
+        <result property="errorMsg"    column="error_msg"    />
+        <result property="delFlag"     column="del_flag"     />
+        <result property="createBy"    column="create_by"    />
+        <result property="createTime"  column="create_time"  />
+        <result property="updateBy"    column="update_by"    />
+        <result property="updateTime"  column="update_time"  />
+        <result property="remark"      column="remark"       />
+    </resultMap>
+
+    <sql id="selectYgKbDocumentVo">
+        select doc_id, kb_id, file_name, file_path, file_type, file_size, chunk_count, index_status,
+        error_msg, del_flag, create_by, create_time, update_by, update_time, remark from yg_kb_document
+    </sql>
+
+    <select id="selectYgKbDocumentList" parameterType="YgKbDocument" resultMap="YgKbDocumentResult">
+        <include refid="selectYgKbDocumentVo"/>
+        <where>
+            del_flag = '0'
+            <if test="kbId != null"> and kb_id = #{kbId}</if>
+            <if test="fileName != null and fileName != ''"> and file_name like concat('%', #{fileName}, '%')</if>
+            <if test="fileType != null and fileType != ''"> and file_type = #{fileType}</if>
+            <if test="indexStatus != null and indexStatus != ''"> and index_status = #{indexStatus}</if>
+        </where>
+        order by doc_id desc
+    </select>
+
+    <select id="selectYgKbDocumentByDocId" parameterType="Long" resultMap="YgKbDocumentResult">
+        <include refid="selectYgKbDocumentVo"/>
+        where doc_id = #{docId} and del_flag = '0'
+    </select>
+
+    <select id="selectByKbIdAll" parameterType="Long" resultMap="YgKbDocumentResult">
+        <include refid="selectYgKbDocumentVo"/>
+        where kb_id = #{kbId} and del_flag = '0' order by doc_id asc
+    </select>
+
+    <insert id="insertYgKbDocument" parameterType="YgKbDocument" useGeneratedKeys="true" keyProperty="docId">
+        insert into yg_kb_document
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="kbId != null">kb_id,</if>
+            <if test="fileName != null and fileName != ''">file_name,</if>
+            <if test="filePath != null and filePath != ''">file_path,</if>
+            <if test="fileType != null">file_type,</if>
+            <if test="fileSize != null">file_size,</if>
+            <if test="chunkCount != null">chunk_count,</if>
+            <if test="indexStatus != null">index_status,</if>
+            <if test="errorMsg != null">error_msg,</if>
+            <if test="delFlag != null">del_flag,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+            <if test="remark != null">remark,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="kbId != null">#{kbId},</if>
+            <if test="fileName != null and fileName != ''">#{fileName},</if>
+            <if test="filePath != null and filePath != ''">#{filePath},</if>
+            <if test="fileType != null">#{fileType},</if>
+            <if test="fileSize != null">#{fileSize},</if>
+            <if test="chunkCount != null">#{chunkCount},</if>
+            <if test="indexStatus != null">#{indexStatus},</if>
+            <if test="errorMsg != null">#{errorMsg},</if>
+            <if test="delFlag != null">#{delFlag},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+            <if test="remark != null">#{remark},</if>
+         </trim>
+    </insert>
+
+    <update id="updateYgKbDocument" parameterType="YgKbDocument">
+        update yg_kb_document
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="fileName != null and fileName != ''">file_name = #{fileName},</if>
+            <if test="filePath != null and filePath != ''">file_path = #{filePath},</if>
+            <if test="fileType != null">file_type = #{fileType},</if>
+            <if test="fileSize != null">file_size = #{fileSize},</if>
+            <if test="chunkCount != null">chunk_count = #{chunkCount},</if>
+            <if test="indexStatus != null">index_status = #{indexStatus},</if>
+            <if test="errorMsg != null">error_msg = #{errorMsg},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="remark != null">remark = #{remark},</if>
+        </trim>
+        where doc_id = #{docId}
+    </update>
+
+    <update id="updateIndexStatus">
+        update yg_kb_document set index_status = #{indexStatus}, error_msg = #{errorMsg}
+        where doc_id = #{docId}
+    </update>
+
+    <update id="deleteYgKbDocumentByDocIds" parameterType="String">
+        update yg_kb_document set del_flag = '2' where doc_id in
+        <foreach item="docId" collection="array" open="(" separator="," close=")">
+            #{docId}
+        </foreach>
+    </update>
+
+    <update id="deleteByKbIds" parameterType="String">
+        update yg_kb_document set del_flag = '2' where kb_id in
+        <foreach item="kbId" collection="array" open="(" separator="," close=")">
+            #{kbId}
+        </foreach>
+    </update>
+</mapper>

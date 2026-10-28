@@ -1,0 +1,410 @@
+name: Deploy to BaoTa (Java)
+
+# 项目：若依 RuoYi 3.9.2 / Spring Boot 4.x / JDK 17 多模块 Maven
+# 产物：ruoyi-admin/target/ruoyi-admin.jar（可执行 jar）
+#
+# 触发条件：
+# 1. 推送到 xinyujava 分支（仅代码/配置变更，文档改动不触发）
+# 2. 在 Actions 页面手动执行
+on:
+  push:
+    branches: [xinyujava]
+    paths-ignore:
+      - '**/*.md'
+      - 'doc/**'
+      - '.gitignore'
+      - 'LICENSE'
+  workflow_dispatch:
+
+# 同一时间只跑一条流水线，新提交会取消进行中的旧任务
+concurrency:
+  group: deploy-production
+  cancel-in-progress: true
+
+env:
+  JAVA_VERSION: '17'
+  # 打包参数：跳过测试执行与测试代码编译（要跑测试就去掉 -Dmaven.test.skip=true）
+  MAVEN_ARGS: '-B -ntp -DskipTests -Dmaven.test.skip=true'
+  # Maven 构建产物（ruoyi-admin/pom.xml 中 finalName = artifactId）
+  JAR_SOURCE: 'ruoyi-admin/target/ruoyi-admin.jar'
+  # artifact 中的文件名，也是下载到 runner 后的文件名
+  JAR_ARTIFACT: 'ruoyi-admin.jar'
+  MAVEN_OPTS: '-Xmx2g -Dfile.encoding=UTF-8'
+
+jobs:
+  # ---------- 1. 构建 ----------
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: 'maven'
+          cache-dependency-path: '**/pom.xml'
+
+      - name: Maven build
+        run: mvn ${{ env.MAVEN_ARGS }} clean package
+
+      - name: Verify jar output
+        run: |
+          test -f "${{ env.JAR_SOURCE }}" || { echo "::error::构建产物缺失：${{ env.JAR_SOURCE }}"; exit 1; }
+          # 必须被 spring-boot-maven-plugin repackage 过，否则 java -jar 起不来
+          # 先落盘再 grep，避免 unzip 收到 SIGPIPE 在 pipefail 下误判失败
+          unzip -p "${{ env.JAR_SOURCE }}" META-INF/MANIFEST.MF > /tmp/manifest.txt
+          if ! grep -q 'Main-Class' /tmp/manifest.txt; then
+            echo "::error::jar 缺少 Main-Class，spring-boot repackage 未生效"
+            head -20 /tmp/manifest.txt
+            exit 1
+          fi
+          echo "构建产物："
+          ls -lh "${{ env.JAR_SOURCE }}"
+
+      - name: Upload jar artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-jar
+          path: ${{ env.JAR_SOURCE }}
+          retention-days: 3
+
+  # ---------- 2. 部署到宝塔服务器 ----------
+  # 认证：优先公钥（DEPLOY_SSH_KEY），公钥被拒时自动降级密码（DEPLOY_PASSWORD）
+  # 流程：上传 jar -> 备份旧版 -> 停旧进程 -> 启动新版 -> 健康检查 -> 失败自动回滚
+  deploy:
+    name: Deploy
+    needs: build
+    runs-on: ubuntu-latest
+    env:
+      HOST: ${{ secrets.DEPLOY_HOST }}
+      PORT: ${{ secrets.DEPLOY_PORT }}
+      USER_NAME: ${{ secrets.DEPLOY_USER }}
+      TARGET: ${{ secrets.DEPLOY_PATH_java }}
+      SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+      PASSWORD: ${{ secrets.DEPLOY_PASSWORD }}
+      # sshpass -e 从该变量取密码，公钥模式下留空无影响
+      SSHPASS: ${{ secrets.DEPLOY_PASSWORD }}
+      # 应用监听端口，未配置默认 8080（对应 application.yml 的 server.port）
+      APP_PORT: ${{ secrets.DEPLOY_APP_PORT }}
+      # 覆盖 JVM 参数，未配置时用下面的 DEFAULT_JVM_OPTS
+      JVM_OPTS: ${{ secrets.DEPLOY_JVM_OPTS }}
+      # 追加 Spring Boot 启动参数，如 --spring.data.redis.host=127.0.0.1
+      EXTRA_ARGS: ${{ secrets.DEPLOY_EXTRA_ARGS }}
+      # 上传目录覆盖；不配置时沿用 application.yml 的 ruoyi.profile（/home/ruoyi/uploadPath）
+      PROFILE_DIR: ${{ secrets.DEPLOY_PROFILE }}
+    steps:
+      - name: Download jar artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: app-jar
+          path: dist
+
+      # 把"缺少 Secret"这类问题在第一步就明确报出来，而不是等 ssh 抛一句看不懂的错
+      - name: Preflight check
+        run: |
+          missing=""
+          if [ -z "$HOST" ];      then missing="$missing DEPLOY_HOST"; fi
+          if [ -z "$USER_NAME" ]; then missing="$missing DEPLOY_USER"; fi
+          if [ -z "$TARGET" ];    then missing="$missing DEPLOY_PATH"; fi
+          if [ -n "$missing" ]; then
+            echo "::error::以下 Secrets 未配置（Settings → Secrets and variables → Actions）：$missing"
+            exit 1
+          fi
+          if [ -z "$SSH_KEY" ] && [ -z "$PASSWORD" ]; then
+            echo "::error::DEPLOY_SSH_KEY 与 DEPLOY_PASSWORD 至少需要配置一个"
+            exit 1
+          fi
+          # 部署会往这个目录写 jar / 备份 / pid / logs / uploadPath，太宽泛会污染系统目录
+          case "$TARGET" in
+            "/"|"/root"|"/home"|"/opt"|"/usr"|"/www"|"/www/wwwroot"|"/www/wwwroot/"|"/www/wwwroot/.")
+              echo "::error::DEPLOY_PATH=$TARGET 过于宽泛，请指向具体应用目录（如 /www/wwwroot/ruoyi-api），已中止"; exit 1;;
+          esac
+          test -f "dist/${{ env.JAR_ARTIFACT }}" \
+            || { echo "::error::dist/${{ env.JAR_ARTIFACT }} 不存在，artifact 下载异常"; exit 1; }
+          echo "目标：${USER_NAME}@${HOST}:${PORT:-22}  ->  ${TARGET}"
+          echo "应用端口：${APP_PORT:-8080}"
+          ls -lh dist/
+
+      - name: Setup SSH (auto detect auth method)
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          PORT="${PORT:-22}"
+          ssh-keyscan -p "$PORT" -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+          HAVE_KEY=0
+          HAVE_PW=0
+
+          if [ -n "$SSH_KEY" ]; then
+            # 兼容粘贴时把换行变成字面量 \n 的情况
+            if printf '%s' "$SSH_KEY" | grep -q $'\n'; then
+              printf '%s\n' "$SSH_KEY" | tr -d '\r' > ~/.ssh/deploy_key
+            else
+              echo "私钥为单行格式，自动还原换行"
+              printf '%s' "$SSH_KEY" | sed 's/\\n/\n/g' > ~/.ssh/deploy_key
+            fi
+            chmod 600 ~/.ssh/deploy_key
+            HAVE_KEY=1
+          fi
+
+          if [ -n "$PASSWORD" ]; then
+            sudo apt-get update -qq >/dev/null 2>&1 || true
+            sudo apt-get install -y -qq sshpass >/dev/null 2>&1 || true
+            command -v sshpass >/dev/null && HAVE_PW=1
+          fi
+
+          echo "----- 认证方式探测 -----"
+          # 1) 先试公钥
+          if [ "$HAVE_KEY" = "1" ]; then
+            if ssh -i ~/.ssh/deploy_key -p "$PORT" -o BatchMode=yes -o ConnectTimeout=15 \
+                   -o StrictHostKeyChecking=accept-new "${USER_NAME}@${HOST}" true 2>/dev/null; then
+              echo "AUTH_MODE=key" >> "$GITHUB_ENV"
+              echo "公钥认证通过"
+              exit 0
+            fi
+            echo "公钥认证未通过（服务端可能未安装该公钥，或 sshd 关闭了 PubkeyAuthentication）"
+          fi
+          # 2) 公钥不行则降级密码
+          if [ "$HAVE_PW" = "1" ]; then
+            if sshpass -e ssh -p "$PORT" -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new \
+                   -o PreferredAuthentications=password,keyboard-interactive -o PubkeyAuthentication=no \
+                   "${USER_NAME}@${HOST}" true 2>/dev/null; then
+              echo "AUTH_MODE=password" >> "$GITHUB_ENV"
+              echo "密码认证通过（可正常部署，建议之后改用公钥更安全）"
+              exit 0
+            fi
+            echo "密码认证也失败"
+          fi
+
+          echo "::error::SSH 认证全部失败。排查：①DEPLOY_HOST/USER 是否正确（宝塔面板显示的用户名）②密码模式下密码是否正确、SSH 端口 ${PORT} 是否放行 ③公钥模式下需把 deploy_key.pub 追加到服务器 ~/.ssh/authorized_keys ④服务端 /etc/ssh/sshd_config 是否 PubkeyAuthentication yes"
+          exit 1
+
+      # 服务器侧自检：JDK / rsync / curl，缺什么直接报到位
+      - name: Remote environment check
+        run: |
+          PORT="${PORT:-22}"
+          if [ "$AUTH_MODE" = "password" ]; then
+            SSH_CMD="sshpass -e ssh -p $PORT -o StrictHostKeyChecking=accept-new -o PreferredAuthentications=password,keyboard-interactive -o PubkeyAuthentication=no"
+          else
+            SSH_CMD="ssh -i $HOME/.ssh/deploy_key -p $PORT -o BatchMode=yes -o StrictHostKeyChecking=accept-new"
+          fi
+
+          $SSH_CMD "${USER_NAME}@${HOST}" "bash -s" <<'REMOTE'
+          set -u
+          echo "主机：$(hostname)"
+          if ! command -v java >/dev/null 2>&1; then
+            echo "::error::服务器未安装 JDK 17+，请先在宝塔「软件商店 → Java 项目」或包管理器安装"
+            exit 1
+          fi
+          java -version 2>&1 | head -3
+          if ! command -v rsync >/dev/null 2>&1; then
+            echo "::error::服务器缺少 rsync，请执行 yum install -y rsync 或 apt-get install -y rsync"
+            exit 1
+          fi
+          command -v curl >/dev/null 2>&1 || echo "警告：未见 curl，健康检查将退化为进程存活探测"
+          echo "磁盘可用空间：$(df -h . | tail -1)"
+          REMOTE
+
+      - name: Upload jar
+        run: |
+          PORT="${PORT:-22}"
+          if [ "$AUTH_MODE" = "password" ]; then
+            SSH_CMD="sshpass -e ssh -p $PORT -o StrictHostKeyChecking=accept-new -o PreferredAuthentications=password,keyboard-interactive -o PubkeyAuthentication=no"
+          else
+            SSH_CMD="ssh -i $HOME/.ssh/deploy_key -p $PORT -o BatchMode=yes -o StrictHostKeyChecking=accept-new"
+          fi
+
+          # 应用目录：app.jar / app.jar.bak / app.pid / logs 都放在这里
+          $SSH_CMD "${USER_NAME}@${HOST}" "mkdir -p '$TARGET/logs'"
+
+          # 上传目录：默认取 application.yml 的 /home/ruoyi/uploadPath，可用 DEPLOY_PROFILE 覆盖
+          PROFILE_TARGET="${PROFILE_DIR:-/home/ruoyi/uploadPath}"
+          $SSH_CMD "${USER_NAME}@${HOST}" \
+            "mkdir -p '$PROFILE_TARGET' && [ -w '$PROFILE_TARGET' ] && echo '上传目录可写：$PROFILE_TARGET'" \
+            || { echo "::error::上传目录 $PROFILE_TARGET 无法创建或不可写，请在 Secrets 配置 DEPLOY_PROFILE 指向可写目录"; exit 1; }
+
+          # 先传成 app.jar.new，重启步骤里再原子替换，避免传一半把线上 jar 写坏
+          rsync -avz --chmod=F644 -e "$SSH_CMD" \
+                "dist/${{ env.JAR_ARTIFACT }}" \
+                "${USER_NAME}@${HOST}:$TARGET/app.jar.new"
+
+      - name: Restart application & health check
+        run: |
+          PORT="${PORT:-22}"
+          if [ "$AUTH_MODE" = "password" ]; then
+            SSH_CMD="sshpass -e ssh -p $PORT -o StrictHostKeyChecking=accept-new -o PreferredAuthentications=password,keyboard-interactive -o PubkeyAuthentication=no"
+          else
+            SSH_CMD="ssh -i $HOME/.ssh/deploy_key -p $PORT -o BatchMode=yes -o StrictHostKeyChecking=accept-new"
+          fi
+
+          # 参数以命令前缀注入远端；JVM_OPTS / EXTRA_ARGS 里不要含单引号
+          $SSH_CMD "${USER_NAME}@${HOST}" \
+            "TARGET='$TARGET' APP_PORT='${APP_PORT:-8080}' JVM_OPTS='$JVM_OPTS' EXTRA_ARGS='$EXTRA_ARGS' PROFILE_DIR='${PROFILE_DIR:-}' bash -s" <<'REMOTE'
+          set -u
+          cd "$TARGET" || { echo "目录不存在：$TARGET"; exit 1; }
+          mkdir -p logs
+
+          # 上传目录：配置了 DEPLOY_PROFILE 才覆盖，否则沿用 application.yml 的 ruoyi.profile
+          PROFILE_ARG=""
+          if [ -n "${PROFILE_DIR:-}" ]; then
+            PROFILE_ARG="--ruoyi.profile=$PROFILE_DIR"
+            echo "上传目录覆盖为：$PROFILE_DIR"
+          else
+            echo "上传目录沿用 application.yml 的 ruoyi.profile"
+          fi
+
+          # 1) 前置校验：新 jar 必须已经传上来
+          if [ ! -f app.jar.new ]; then
+            echo "app.jar.new 不存在，上传可能失败，中止且不动线上 jar"
+            exit 1
+          fi
+
+          # 2) 停旧进程：优先 pid 文件，兜底按 jar 名匹配
+          OLD_PID=""
+          if [ -f app.pid ]; then
+            OLD_PID="$(cat app.pid 2>/dev/null || true)"
+            kill -0 "$OLD_PID" 2>/dev/null || OLD_PID=""
+          fi
+          if [ -z "$OLD_PID" ]; then
+            OLD_PID="$(pgrep -f 'java .*app\.jar' 2>/dev/null | head -1 || true)"
+          fi
+          if [ -n "$OLD_PID" ]; then
+            echo "停止旧进程 PID=$OLD_PID"
+            kill "$OLD_PID" 2>/dev/null || true
+            for i in $(seq 1 30); do
+              kill -0 "$OLD_PID" 2>/dev/null || break
+              sleep 1
+            done
+            if kill -0 "$OLD_PID" 2>/dev/null; then
+              echo "30s 未正常退出，强制 kill -9"
+              kill -9 "$OLD_PID" 2>/dev/null || true
+              sleep 2
+            fi
+          else
+            echo "未发现运行中的旧进程（首次部署）"
+          fi
+
+          # 3) 端口占用检查：旧进程没死干净时不能让健康检查被旧响应骗过
+          if command -v ss >/dev/null 2>&1; then
+            if ss -lnt 2>/dev/null | awk '{print $4}' | grep -q ":$APP_PORT\$"; then
+              echo "端口 $APP_PORT 仍被占用："
+              ss -lntp 2>/dev/null | grep ":$APP_PORT\$" || true
+              echo "端口未释放，新进程必然启动失败，中止且不动线上 jar"
+              exit 1
+            fi
+          fi
+
+          # 4) 备份并原子替换 jar（此时才动线上文件，前面失败都不影响旧版）
+          if [ -f app.jar ]; then
+            cp -f app.jar app.jar.bak
+            echo "已备份上一版 -> app.jar.bak"
+          fi
+          mv -f app.jar.new app.jar
+          echo "jar 已替换：$(ls -lh app.jar | awk '{print $5}')"
+
+          DEFAULT_JVM_OPTS="-Xms512m -Xmx1024m -Dfile.encoding=UTF-8 -Duser.timezone=Asia/Shanghai"
+          FINAL_OPTS="${JVM_OPTS:-$DEFAULT_JVM_OPTS}"
+          echo "JVM 参数：$FINAL_OPTS"
+
+          # 旧日志归档，方便和本次启动对照
+          [ -f logs/app.out ] && mv -f logs/app.out logs/app.out.prev || true
+
+          nohup java $FINAL_OPTS -jar app.jar \
+            --server.port="$APP_PORT" \
+            $PROFILE_ARG \
+            $EXTRA_ARGS >> logs/app.out 2>&1 &
+          NEW_PID=$!
+          echo "$NEW_PID" > app.pid
+          echo "已启动 PID=$NEW_PID，开始健康检查..."
+
+          # 5) 健康检查：最多等 120s；进程提前退出则立即判失败
+          OK=0
+          if command -v curl >/dev/null 2>&1; then
+            for i in $(seq 1 60); do
+              if curl -fsS -m 3 -o /dev/null "http://127.0.0.1:$APP_PORT/" 2>/dev/null; then
+                # 端口有响应还不够，必须确认响应来自刚启动的进程
+                if kill -0 "$NEW_PID" 2>/dev/null; then
+                  OK=1
+                else
+                  echo "端口有响应但新进程已退出，可能是旧进程残留或端口冲突"
+                fi
+                break
+              fi
+              if ! kill -0 "$NEW_PID" 2>/dev/null; then
+                echo "进程已退出，启动失败"
+                break
+              fi
+              sleep 2
+            done
+          else
+            echo "服务器无 curl，退化为进程存活探测（等待 30s）"
+            sleep 30
+            if kill -0 "$NEW_PID" 2>/dev/null; then OK=1; fi
+          fi
+
+          if [ "$OK" != "1" ]; then
+            echo "----- logs/app.out 最后 120 行 -----"
+            tail -n 120 logs/app.out || true
+            echo "健康检查未通过（http://127.0.0.1:$APP_PORT/ 无响应）"
+            exit 1
+          fi
+          echo "健康检查通过：http://127.0.0.1:$APP_PORT/ 正常响应"
+          echo "运行 PID=$NEW_PID  内存占用：$(ps -o rss= -p "$NEW_PID" 2>/dev/null | awk '{printf "%.0f MB", $1/1024}')"
+          REMOTE
+
+      # 部署失败（含健康检查不通过）时自动回滚到上一个可用 jar
+      - name: Rollback to previous jar
+        if: failure()
+        run: |
+          PORT="${PORT:-22}"
+          if [ "$AUTH_MODE" = "password" ]; then
+            SSH_CMD="sshpass -e ssh -p $PORT -o StrictHostKeyChecking=accept-new -o PreferredAuthentications=password,keyboard-interactive -o PubkeyAuthentication=no"
+          else
+            SSH_CMD="ssh -i $HOME/.ssh/deploy_key -p $PORT -o BatchMode=yes -o StrictHostKeyChecking=accept-new"
+          fi
+          echo "检测到失败，尝试回滚..."
+
+          $SSH_CMD "${USER_NAME}@${HOST}" \
+            "TARGET='$TARGET' APP_PORT='${APP_PORT:-8080}' JVM_OPTS='$JVM_OPTS' EXTRA_ARGS='$EXTRA_ARGS' PROFILE_DIR='${PROFILE_DIR:-}' bash -s" <<'REMOTE'
+          set -u
+          cd "$TARGET" || exit 1
+          if [ ! -f app.jar.bak ]; then
+            echo "无 app.jar.bak，无法回滚，请手动处理"
+            exit 0
+          fi
+          mv -f app.jar.bak app.jar
+
+          PROFILE_ARG=""
+          if [ -n "${PROFILE_DIR:-}" ]; then PROFILE_ARG="--ruoyi.profile=$PROFILE_DIR"; fi
+
+          KILL_PID="$(pgrep -f 'java .*app\.jar' 2>/dev/null | head -1 || true)"
+          if [ -n "$KILL_PID" ]; then
+            kill "$KILL_PID" 2>/dev/null || true
+            for i in $(seq 1 20); do kill -0 "$KILL_PID" 2>/dev/null || break; sleep 1; done
+            kill -9 "$KILL_PID" 2>/dev/null || true
+          fi
+
+          DEFAULT_JVM_OPTS="-Xms512m -Xmx1024m -Dfile.encoding=UTF-8 -Duser.timezone=Asia/Shanghai"
+          nohup java ${JVM_OPTS:-$DEFAULT_JVM_OPTS} -jar app.jar \
+            --server.port="$APP_PORT" \
+            $PROFILE_ARG \
+            $EXTRA_ARGS >> logs/app.out 2>&1 &
+          echo $! > app.pid
+          sleep 5
+          echo "已回滚到上一版，PID=$(cat app.pid)"
+          REMOTE
+
+      - name: Deploy summary
+        if: success()
+        run: |
+          PORT="${PORT:-22}"
+          if [ "$AUTH_MODE" = "password" ]; then
+            SSH_CMD="sshpass -e ssh -p $PORT -o StrictHostKeyChecking=accept-new -o PreferredAuthentications=password,keyboard-interactive -o PubkeyAuthentication=no"
+          else
+            SSH_CMD="ssh -i $HOME/.ssh/deploy_key -p $PORT -o BatchMode=yes -o StrictHostKeyChecking=accept-new"
+          fi
+          echo "----- 部署结果 -----"
+          $SSH_CMD "${USER_NAME}@${HOST}" \
+            "cd '$TARGET' && echo '文件：' && ls -lh app.jar app.jar.bak app.pid 2>/dev/null; echo '进程：' && ps -o pid,etime,rss,cmd -p \$(cat app.pid) 2>/dev/null"

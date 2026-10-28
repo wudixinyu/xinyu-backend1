@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.system.mapper.YgShopWebhookMapper">
+
+    <resultMap type="YgShopWebhook" id="YgShopWebhookResult">
+        <result property="webhookId"          column="webhook_id"           />
+        <result property="storeId"            column="store_id"             />
+        <result property="storeName"          column="store_name"           />
+        <result property="wooWebhookId"       column="woo_webhook_id"       />
+        <result property="name"               column="name"                 />
+        <result property="topic"              column="topic"                />
+        <result property="deliveryUrl"        column="delivery_url"         />
+        <result property="secret"             column="secret"               />
+        <result property="status"             column="status"               />
+        <result property="lastDeliveryTime"   column="last_delivery_time"   />
+        <result property="lastDeliveryStatus" column="last_delivery_status" />
+        <result property="createBy"           column="create_by"            />
+        <result property="createTime"         column="create_time"          />
+        <result property="updateBy"           column="update_by"            />
+        <result property="updateTime"         column="update_time"          />
+        <result property="remark"             column="remark"               />
+    </resultMap>
+
+    <sql id="selectYgShopWebhookVo">
+        select w.webhook_id, w.store_id, s.store_name, w.woo_webhook_id, w.name, w.topic, w.delivery_url,
+        w.secret, w.status, w.last_delivery_time, w.last_delivery_status, w.create_by, w.create_time,
+        w.update_by, w.update_time, w.remark
+        from yg_shop_webhook w
+        left join yg_shop_store s on s.store_id = w.store_id
+    </sql>
+
+    <select id="selectYgShopWebhookList" parameterType="YgShopWebhook" resultMap="YgShopWebhookResult">
+        <include refid="selectYgShopWebhookVo"/>
+        <where>
+            <if test="storeId != null"> and w.store_id = #{storeId}</if>
+            <if test="name != null and name != ''"> and w.name like concat('%', #{name}, '%')</if>
+            <if test="topic != null and topic != ''"> and w.topic = #{topic}</if>
+            <if test="status != null and status != ''"> and w.status = #{status}</if>
+        </where>
+        order by w.webhook_id desc
+    </select>
+
+    <select id="selectYgShopWebhookByWebhookId" parameterType="Long" resultMap="YgShopWebhookResult">
+        <include refid="selectYgShopWebhookVo"/>
+        where w.webhook_id = #{webhookId}
+    </select>
+
+    <select id="selectByStoreAndWooId" resultMap="YgShopWebhookResult">
+        <include refid="selectYgShopWebhookVo"/>
+        where w.store_id = #{storeId} and w.woo_webhook_id = #{wooWebhookId}
+        limit 1
+    </select>
+
+    <insert id="upsertYgShopWebhook" parameterType="YgShopWebhook" useGeneratedKeys="true" keyProperty="webhookId">
+        insert into yg_shop_webhook
+        (store_id, woo_webhook_id, name, topic, delivery_url, secret, status, create_by, create_time,
+         update_by, update_time, remark)
+        values
+        (#{storeId}, #{wooWebhookId}, #{name}, #{topic}, #{deliveryUrl}, #{secret}, #{status},
+         #{createBy}, #{createTime}, #{updateBy}, #{updateTime}, #{remark})
+        on duplicate key update
+            name = values(name),
+            topic = values(topic),
+            delivery_url = values(delivery_url),
+            secret = if(values(secret) is null or values(secret) = '', secret, values(secret)),
+            status = values(status),
+            update_by = values(update_by),
+            update_time = values(update_time),
+            remark = ifnull(values(remark), remark)
+    </insert>
+
+    <update id="updateStatus">
+        update yg_shop_webhook set status = #{status}, update_time = sysdate()
+        where webhook_id = #{webhookId}
+    </update>
+
+    <update id="updateDeliveryResult">
+        update yg_shop_webhook set last_delivery_time = #{deliveryTime}, last_delivery_status = #{status}
+        where webhook_id = #{webhookId}
+    </update>
+
+    <delete id="deleteYgShopWebhookByWebhookIds" parameterType="String">
+        delete from yg_shop_webhook where webhook_id in
+        <foreach item="webhookId" collection="array" open="(" separator="," close=")">
+            #{webhookId}
+        </foreach>
+    </delete>
+</mapper>

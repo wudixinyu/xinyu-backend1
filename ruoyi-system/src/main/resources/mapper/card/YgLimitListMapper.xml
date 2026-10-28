@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.system.mapper.YgLimitListMapper">
+    
+    <resultMap type="YgLimitList" id="YgLimitListResult">
+        <result property="limitId"       column="limit_id"       />
+        <result property="cardId"        column="card_id"        />
+        <result property="otType"        column="ot_type"        />
+        <result property="limitType"     column="limit_type"     />
+        <result property="effectiveDate" column="effective_date" />
+        <result property="isCurrent"     column="is_current"     />
+        <result property="imageUrl"      column="image_url"      />
+        <result property="createBy"      column="create_by"      />
+        <result property="createTime"    column="create_time"    />
+        <result property="updateBy"      column="update_by"      />
+        <result property="updateTime"    column="update_time"    />
+        <result property="remark"        column="remark"         />
+    </resultMap>
+
+    <sql id="selectYgLimitListVo">
+        select limit_id, card_id, ot_type, limit_type, effective_date, is_current, create_by, create_time, update_by, update_time, remark from yg_limit_list
+    </sql>
+
+    <select id="selectYgLimitListList" parameterType="YgLimitList" resultMap="YgLimitListResult">
+        select l.limit_id, l.card_id, l.ot_type, l.limit_type, l.effective_date, l.is_current,
+               l.create_by, l.create_time, l.update_by, l.update_time, l.remark, i.image_url
+        from yg_limit_list l
+        left join yg_card_info i on i.card_id = l.card_id
+        <where>  
+            <if test="cardId != null "> and l.card_id = #{cardId}</if>
+            <if test="otType != null  and otType != ''"> and l.ot_type = #{otType}</if>
+            <if test="limitType != null "> and l.limit_type = #{limitType}</if>
+            <if test="isCurrent != null  and isCurrent != ''"> and l.is_current = #{isCurrent}</if>
+            <if test="params.beginEffectiveDate != null and params.beginEffectiveDate != '' and params.endEffectiveDate != null and params.endEffectiveDate != ''"> and l.effective_date between #{params.beginEffectiveDate} and #{params.endEffectiveDate}</if>
+        </where>
+    </select>
+    
+    <select id="selectYgLimitListByLimitId" parameterType="Long" resultMap="YgLimitListResult">
+        <include refid="selectYgLimitListVo"/>
+        where limit_id = #{limitId}
+    </select>
+
+    <insert id="insertYgLimitList" parameterType="YgLimitList" useGeneratedKeys="true" keyProperty="limitId">
+        insert into yg_limit_list
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="cardId != null">card_id,</if>
+            <if test="otType != null and otType != ''">ot_type,</if>
+            <if test="limitType != null">limit_type,</if>
+            <if test="effectiveDate != null">effective_date,</if>
+            <if test="isCurrent != null">is_current,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+            <if test="remark != null">remark,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="cardId != null">#{cardId},</if>
+            <if test="otType != null and otType != ''">#{otType},</if>
+            <if test="limitType != null">#{limitType},</if>
+            <if test="effectiveDate != null">#{effectiveDate},</if>
+            <if test="isCurrent != null">#{isCurrent},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+            <if test="remark != null">#{remark},</if>
+         </trim>
+    </insert>
+
+    <update id="updateYgLimitList" parameterType="YgLimitList">
+        update yg_limit_list
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="cardId != null">card_id = #{cardId},</if>
+            <if test="otType != null and otType != ''">ot_type = #{otType},</if>
+            <if test="limitType != null">limit_type = #{limitType},</if>
+            <if test="effectiveDate != null">effective_date = #{effectiveDate},</if>
+            <if test="isCurrent != null">is_current = #{isCurrent},</if>
+            <if test="createBy != null">create_by = #{createBy},</if>
+            <if test="createTime != null">create_time = #{createTime},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="remark != null">remark = #{remark},</if>
+        </trim>
+        where limit_id = #{limitId}
+    </update>
+
+    <delete id="deleteYgLimitListByLimitId" parameterType="Long">
+        delete from yg_limit_list where limit_id = #{limitId}
+    </delete>
+
+    <delete id="deleteYgLimitListByLimitIds" parameterType="String">
+        delete from yg_limit_list where limit_id in 
+        <foreach item="limitId" collection="array" open="(" separator="," close=")">
+            #{limitId}
+        </foreach>
+    </delete>
+
+    <update id="markLimitHistory" parameterType="String">
+        update yg_limit_list set is_current = '0', update_time = sysdate()
+        where ot_type = #{otType} and is_current = '1'
+    </update>
+
+    <insert id="batchUpsertYgLimitList" parameterType="java.util.List">
+        insert into yg_limit_list (card_id, ot_type, limit_type, effective_date, is_current, remark,
+        create_time, update_time) values
+        <foreach item="item" collection="list" separator=",">
+            (#{item.cardId}, #{item.otType}, #{item.limitType}, #{item.effectiveDate}, #{item.isCurrent},
+            #{item.remark}, sysdate(), sysdate())
+        </foreach>
+        on duplicate key update limit_type = values(limit_type), is_current = '1',
+        effective_date = values(effective_date), update_time = sysdate()
+    </insert>
+</mapper>

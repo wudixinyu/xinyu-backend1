@@ -1,0 +1,225 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.system.mapper.YgCardInfoMapper">
+    
+    <resultMap type="YgCardInfo" id="YgCardInfoResult">
+        <id     property="cardId"        column="card_id"        />
+        <result property="cid"           column="cid"            />
+        <result property="cnName"        column="cn_name"        />
+        <result property="scName"        column="sc_name"        />
+        <result property="mdName"        column="md_name"        />
+        <result property="jpName"        column="jp_name"        />
+        <result property="jpRuby"        column="jp_ruby"        />
+        <result property="enName"        column="en_name"        />
+        <result property="ot"            column="ot"             />
+        <result property="setcode"       column="setcode"        />
+        <result property="type"          column="type"           />
+        <result property="cardKind"      column="card_kind"      />
+        <result property="attribute"     column="attribute"      />
+        <result property="race"          column="race"           />
+        <result property="atk"           column="atk"            />
+        <result property="def"           column="def"            />
+        <result property="levelRaw"      column="level_raw"      />
+        <result property="cardLevel"     column="card_level"     />
+        <result property="lscale"        column="lscale"         />
+        <result property="rscale"        column="rscale"         />
+        <result property="linkMarker"    column="link_marker"    />
+        <result property="typesDesc"     column="types_desc"     />
+        <result property="effectDesc"    column="effect_desc"    />
+        <result property="pendulumDesc"  column="pendulum_desc"  />
+        <result property="imageUrl"      column="image_url"      />
+        <result property="syncSource"    column="sync_source"    />
+        <result property="syncTime"      column="sync_time"      />
+        <result property="status"        column="status"         />
+        <result property="delFlag"       column="del_flag"       />
+        <result property="createBy"      column="create_by"      />
+        <result property="createTime"    column="create_time"    />
+        <result property="updateBy"      column="update_by"      />
+        <result property="updateTime"    column="update_time"    />
+        <result property="remark"        column="remark"         />
+    </resultMap>
+
+    <sql id="selectYgCardInfoVo">
+        select card_id, cid, cn_name, sc_name, md_name, jp_name, jp_ruby, en_name, ot, setcode, type, card_kind, attribute, race, atk, def, level_raw, card_level, lscale, rscale, link_marker, types_desc, effect_desc, pendulum_desc, image_url, sync_source, sync_time, status, del_flag, create_by, create_time, update_by, update_time, remark from yg_card_info
+    </sql>
+
+    <select id="selectYgCardInfoList" parameterType="YgCardInfo" resultMap="YgCardInfoResult">
+        <include refid="selectYgCardInfoVo"/>
+        <where>  
+            del_flag = '0'
+            <if test="cnName != null  and cnName != ''"> and cn_name like concat('%', #{cnName}, '%')</if>
+            <if test="userName != null  and userName != ''"> and cn_name like concat('%', #{userName}, '%')</if>
+            <if test="cardKind != null "> and card_kind = #{cardKind}</if>
+            <if test="attribute != null "> and attribute = #{attribute}</if>
+            <if test="race != null "> and race = #{race}</if>
+            <if test="cardLevel != null "> and card_level = #{cardLevel}</if>
+            <if test="status != null  and status != ''"> and status = #{status}</if>
+            <if test="params.beginSyncTime != null and params.beginSyncTime != '' and params.endSyncTime != null and params.endSyncTime != ''"> and sync_time between #{params.beginSyncTime} and #{params.endSyncTime}</if>
+        </where>
+    </select>
+    
+    <select id="selectYgCardInfoByCardId" parameterType="Long" resultMap="YgCardInfoResult">
+        <include refid="selectYgCardInfoVo"/>
+        where card_id = #{cardId}
+    </select>
+
+    <insert id="insertYgCardInfo" parameterType="YgCardInfo">
+        insert into yg_card_info
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="cardId != null">card_id,</if>
+            <if test="cid != null">cid,</if>
+            <if test="cnName != null">cn_name,</if>
+            <if test="scName != null">sc_name,</if>
+            <if test="mdName != null">md_name,</if>
+            <if test="jpName != null">jp_name,</if>
+            <if test="jpRuby != null">jp_ruby,</if>
+            <if test="enName != null">en_name,</if>
+            <if test="ot != null">ot,</if>
+            <if test="setcode != null">setcode,</if>
+            <if test="type != null">type,</if>
+            <if test="cardKind != null">card_kind,</if>
+            <if test="attribute != null">attribute,</if>
+            <if test="race != null">race,</if>
+            <if test="atk != null">atk,</if>
+            <if test="def != null">def,</if>
+            <if test="levelRaw != null">level_raw,</if>
+            <if test="cardLevel != null">card_level,</if>
+            <if test="lscale != null">lscale,</if>
+            <if test="rscale != null">rscale,</if>
+            <if test="linkMarker != null">link_marker,</if>
+            <if test="typesDesc != null">types_desc,</if>
+            <if test="effectDesc != null">effect_desc,</if>
+            <if test="pendulumDesc != null">pendulum_desc,</if>
+            <if test="imageUrl != null">image_url,</if>
+            <if test="syncSource != null">sync_source,</if>
+            <if test="syncTime != null">sync_time,</if>
+            <if test="status != null">status,</if>
+            <if test="delFlag != null">del_flag,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+            <if test="remark != null">remark,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="cardId != null">#{cardId},</if>
+            <if test="cid != null">#{cid},</if>
+            <if test="cnName != null">#{cnName},</if>
+            <if test="scName != null">#{scName},</if>
+            <if test="mdName != null">#{mdName},</if>
+            <if test="jpName != null">#{jpName},</if>
+            <if test="jpRuby != null">#{jpRuby},</if>
+            <if test="enName != null">#{enName},</if>
+            <if test="ot != null">#{ot},</if>
+            <if test="setcode != null">#{setcode},</if>
+            <if test="type != null">#{type},</if>
+            <if test="cardKind != null">#{cardKind},</if>
+            <if test="attribute != null">#{attribute},</if>
+            <if test="race != null">#{race},</if>
+            <if test="atk != null">#{atk},</if>
+            <if test="def != null">#{def},</if>
+            <if test="levelRaw != null">#{levelRaw},</if>
+            <if test="cardLevel != null">#{cardLevel},</if>
+            <if test="lscale != null">#{lscale},</if>
+            <if test="rscale != null">#{rscale},</if>
+            <if test="linkMarker != null">#{linkMarker},</if>
+            <if test="typesDesc != null">#{typesDesc},</if>
+            <if test="effectDesc != null">#{effectDesc},</if>
+            <if test="pendulumDesc != null">#{pendulumDesc},</if>
+            <if test="imageUrl != null">#{imageUrl},</if>
+            <if test="syncSource != null">#{syncSource},</if>
+            <if test="syncTime != null">#{syncTime},</if>
+            <if test="status != null">#{status},</if>
+            <if test="delFlag != null">#{delFlag},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+            <if test="remark != null">#{remark},</if>
+         </trim>
+    </insert>
+
+    <update id="updateYgCardInfo" parameterType="YgCardInfo">
+        update yg_card_info
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="cid != null">cid = #{cid},</if>
+            <if test="cnName != null">cn_name = #{cnName},</if>
+            <if test="scName != null">sc_name = #{scName},</if>
+            <if test="mdName != null">md_name = #{mdName},</if>
+            <if test="jpName != null">jp_name = #{jpName},</if>
+            <if test="jpRuby != null">jp_ruby = #{jpRuby},</if>
+            <if test="enName != null">en_name = #{enName},</if>
+            <if test="ot != null">ot = #{ot},</if>
+            <if test="setcode != null">setcode = #{setcode},</if>
+            <if test="type != null">type = #{type},</if>
+            <if test="cardKind != null">card_kind = #{cardKind},</if>
+            <if test="attribute != null">attribute = #{attribute},</if>
+            <if test="race != null">race = #{race},</if>
+            <if test="atk != null">atk = #{atk},</if>
+            <if test="def != null">def = #{def},</if>
+            <if test="levelRaw != null">level_raw = #{levelRaw},</if>
+            <if test="cardLevel != null">card_level = #{cardLevel},</if>
+            <if test="lscale != null">lscale = #{lscale},</if>
+            <if test="rscale != null">rscale = #{rscale},</if>
+            <if test="linkMarker != null">link_marker = #{linkMarker},</if>
+            <if test="typesDesc != null">types_desc = #{typesDesc},</if>
+            <if test="effectDesc != null">effect_desc = #{effectDesc},</if>
+            <if test="pendulumDesc != null">pendulum_desc = #{pendulumDesc},</if>
+            <if test="imageUrl != null">image_url = #{imageUrl},</if>
+            <if test="syncSource != null">sync_source = #{syncSource},</if>
+            <if test="syncTime != null">sync_time = #{syncTime},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="delFlag != null">del_flag = #{delFlag},</if>
+            <if test="createBy != null">create_by = #{createBy},</if>
+            <if test="createTime != null">create_time = #{createTime},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="remark != null">remark = #{remark},</if>
+        </trim>
+        where card_id = #{cardId}
+    </update>
+
+    <delete id="deleteYgCardInfoByCardId" parameterType="Long">
+        delete from yg_card_info where card_id = #{cardId}
+    </delete>
+
+    <delete id="deleteYgCardInfoByCardIds" parameterType="String">
+        delete from yg_card_info where card_id in 
+        <foreach item="cardId" collection="array" open="(" separator="," close=")">
+            #{cardId}
+        </foreach>
+    </delete>
+
+    <insert id="batchUpsertYgCardInfo" parameterType="java.util.List">
+        insert into yg_card_info (card_id, cid, cn_name, sc_name, md_name, jp_name, jp_ruby, en_name,
+        ot, setcode, type, card_kind, attribute, race, atk, def, level_raw, card_level, lscale, rscale,
+        link_marker, types_desc, effect_desc, pendulum_desc, image_url, sync_source, sync_time,
+        create_time, update_time) values
+        <foreach item="item" collection="list" separator=",">
+            (#{item.cardId}, #{item.cid}, #{item.cnName}, #{item.scName}, #{item.mdName}, #{item.jpName},
+            #{item.jpRuby}, #{item.enName}, #{item.ot}, #{item.setcode}, #{item.type}, #{item.cardKind},
+            #{item.attribute}, #{item.race}, #{item.atk}, #{item.def}, #{item.levelRaw}, #{item.cardLevel},
+            #{item.lscale}, #{item.rscale}, #{item.linkMarker}, #{item.typesDesc}, #{item.effectDesc},
+            #{item.pendulumDesc}, #{item.imageUrl}, #{item.syncSource}, #{item.syncTime}, sysdate(), sysdate())
+        </foreach>
+        on duplicate key update
+        cid = values(cid), cn_name = values(cn_name), sc_name = values(sc_name), md_name = values(md_name),
+        jp_name = values(jp_name), jp_ruby = values(jp_ruby), en_name = values(en_name), ot = values(ot),
+        setcode = values(setcode), type = values(type), card_kind = values(card_kind), attribute = values(attribute),
+        race = values(race), atk = values(atk), def = values(def), level_raw = values(level_raw),
+        card_level = values(card_level), lscale = values(lscale), rscale = values(rscale),
+        link_marker = values(link_marker), types_desc = values(types_desc), effect_desc = values(effect_desc),
+        pendulum_desc = values(pendulum_desc), image_url = values(image_url), sync_source = values(sync_source),
+        sync_time = values(sync_time), del_flag = '0', update_time = sysdate()
+    </insert>
+
+    <select id="selectDistinctSetcodes" resultType="Long">
+        select distinct setcode from yg_card_info where del_flag = '0' and setcode != 0
+    </select>
+
+    <select id="selectCidCardIdMap" resultType="map">
+        select cid, card_id from yg_card_info where del_flag = '0'
+    </select>
+</mapper>

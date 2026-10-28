@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.system.mapper.YgKbModelConfigMapper">
+
+    <resultMap type="YgKbModelConfig" id="YgKbModelConfigResult">
+        <result property="id"                      column="id"                        />
+        <result property="provider"                column="provider"                  />
+        <result property="chatProvider"            column="chat_provider"             />
+        <result property="embeddingProvider"       column="embedding_provider"        />
+        <result property="ollamaBaseUrl"           column="ollama_base_url"           />
+        <result property="ollamaChatModel"         column="ollama_chat_model"         />
+        <result property="ollamaChatTemperature"   column="ollama_chat_temperature"   />
+        <result property="ollamaEmbeddingModel"    column="ollama_embedding_model"    />
+        <result property="ollamaEmbeddingDim"      column="ollama_embedding_dim"      />
+        <result property="ollamaTimeoutSeconds"    column="ollama_timeout_seconds"    />
+        <result property="openaiBaseUrl"           column="openai_base_url"           />
+        <result property="openaiApiKey"            column="openai_api_key"            />
+        <result property="openaiChatModel"         column="openai_chat_model"         />
+        <result property="openaiChatTemperature"   column="openai_chat_temperature"   />
+        <result property="openaiEmbeddingModel"    column="openai_embedding_model"    />
+        <result property="openaiEmbeddingDim"      column="openai_embedding_dim"      />
+        <result property="openaiTimeoutSeconds"    column="openai_timeout_seconds"    />
+        <result property="customChatApiId"         column="custom_chat_api_id"        />
+        <result property="customEmbeddingApiId"    column="custom_embedding_api_id"   />
+        <result property="chunkStrategy"           column="chunk_strategy"          />
+        <result property="chunkSeparator"          column="chunk_separator"         />
+        <result property="chunkMaxSize"            column="chunk_max_size"            />
+        <result property="chunkOverlap"            column="chunk_overlap"             />
+        <result property="retrievalMaxResults"     column="retrieval_max_results"     />
+        <result property="retrievalMinScore"       column="retrieval_min_score"       />
+        <result property="updateBy"                column="update_by"                 />
+        <result property="updateTime"              column="update_time"               />
+    </resultMap>
+
+    <select id="selectKbModelConfig" resultMap="YgKbModelConfigResult">
+        select id, provider, chat_provider, embedding_provider, ollama_base_url, ollama_chat_model, ollama_chat_temperature,
+        ollama_embedding_model, ollama_embedding_dim, ollama_timeout_seconds,
+        openai_base_url, openai_api_key, openai_chat_model, openai_chat_temperature,
+        openai_embedding_model, openai_embedding_dim, openai_timeout_seconds,
+        custom_chat_api_id, custom_embedding_api_id,
+        chunk_strategy, chunk_separator, chunk_max_size, chunk_overlap, retrieval_max_results, retrieval_min_score,
+        update_by, update_time
+        from yg_kb_model_config order by id desc limit 1
+    </select>
+
+    <insert id="insertKbModelConfig" parameterType="YgKbModelConfig" useGeneratedKeys="true" keyProperty="id">
+        insert into yg_kb_model_config (
+            provider, chat_provider, embedding_provider, ollama_base_url, ollama_chat_model, ollama_chat_temperature,
+            ollama_embedding_model, ollama_embedding_dim, ollama_timeout_seconds,
+            openai_base_url, openai_api_key, openai_chat_model, openai_chat_temperature,
+            openai_embedding_model, openai_embedding_dim, openai_timeout_seconds,
+            custom_chat_api_id, custom_embedding_api_id,
+            chunk_strategy, chunk_separator, chunk_max_size, chunk_overlap, retrieval_max_results, retrieval_min_score,
+            update_by, update_time
+        ) values (
+            #{provider}, #{chatProvider}, #{embeddingProvider}, #{ollamaBaseUrl}, #{ollamaChatModel}, #{ollamaChatTemperature},
+            #{ollamaEmbeddingModel}, #{ollamaEmbeddingDim}, #{ollamaTimeoutSeconds},
+            #{openaiBaseUrl}, #{openaiApiKey}, #{openaiChatModel}, #{openaiChatTemperature},
+            #{openaiEmbeddingModel}, #{openaiEmbeddingDim}, #{openaiTimeoutSeconds},
+            #{customChatApiId}, #{customEmbeddingApiId},
+            #{chunkStrategy}, #{chunkSeparator}, #{chunkMaxSize}, #{chunkOverlap}, #{retrievalMaxResults}, #{retrievalMinScore},
+            #{updateBy}, #{updateTime}
+        )
+    </insert>
+
+    <update id="updateKbModelConfig" parameterType="YgKbModelConfig">
+        update yg_kb_model_config set
+            provider = #{provider},
+            chat_provider = #{chatProvider},
+            embedding_provider = #{embeddingProvider},
+            ollama_base_url = #{ollamaBaseUrl},
+            ollama_chat_model = #{ollamaChatModel},
+            ollama_chat_temperature = #{ollamaChatTemperature},
+            ollama_embedding_model = #{ollamaEmbeddingModel},
+            ollama_embedding_dim = #{ollamaEmbeddingDim},
+            ollama_timeout_seconds = #{ollamaTimeoutSeconds},
+            openai_base_url = #{openaiBaseUrl},
+            openai_api_key = #{openaiApiKey},
+            openai_chat_model = #{openaiChatModel},
+            openai_chat_temperature = #{openaiChatTemperature},
+            openai_embedding_model = #{openaiEmbeddingModel},
+            openai_embedding_dim = #{openaiEmbeddingDim},
+            openai_timeout_seconds = #{openaiTimeoutSeconds},
+            custom_chat_api_id = #{customChatApiId},
+            custom_embedding_api_id = #{customEmbeddingApiId},
+            chunk_strategy = #{chunkStrategy},
+            chunk_separator = #{chunkSeparator},
+            chunk_max_size = #{chunkMaxSize},
+            chunk_overlap = #{chunkOverlap},
+            retrieval_max_results = #{retrievalMaxResults},
+            retrieval_min_score = #{retrievalMinScore},
+            update_by = #{updateBy},
+            update_time = #{updateTime}
+        where id = #{id}
+    </update>
+</mapper>

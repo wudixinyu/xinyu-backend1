@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.system.mapper.YgUserCardPackItemMapper">
+
+    <resultMap type="YgUserCardPackItem" id="YgUserCardPackItemResult">
+        <result property="itemId"     column="item_id"     />
+        <result property="packId"     column="pack_id"     />
+        <result property="cardId"     column="card_id"     />
+        <result property="quantity"   column="quantity"    />
+        <result property="cnName"     column="cn_name"     />
+        <result property="imageUrl"   column="image_url"   />
+        <result property="type"       column="type"        />
+        <result property="createTime" column="create_time" />
+        <result property="remark"     column="remark"      />
+    </resultMap>
+
+    <sql id="selectYgUserCardPackItemVo">
+        select i.item_id, i.pack_id, i.card_id, i.quantity, i.create_time, i.remark,
+               c.cn_name, c.image_url, c.type
+        from yg_user_card_pack_item i
+        left join yg_card_info c on c.card_id = i.card_id
+    </sql>
+
+    <select id="selectYgUserCardPackItemList" parameterType="YgUserCardPackItem" resultMap="YgUserCardPackItemResult">
+        <include refid="selectYgUserCardPackItemVo"/>
+        <where>
+            <if test="packId != null "> and i.pack_id = #{packId}</if>
+            <if test="cardId != null "> and i.card_id = #{cardId}</if>
+        </where>
+        order by i.item_id desc
+    </select>
+
+    <select id="selectYgUserCardPackItemByItemId" parameterType="Long" resultMap="YgUserCardPackItemResult">
+        <include refid="selectYgUserCardPackItemVo"/>
+        where i.item_id = #{itemId}
+    </select>
+
+    <select id="selectByPackAndCard" parameterType="YgUserCardPackItem" resultMap="YgUserCardPackItemResult">
+        <include refid="selectYgUserCardPackItemVo"/>
+        where i.pack_id = #{packId} and i.card_id = #{cardId}
+    </select>
+
+    <insert id="insertYgUserCardPackItem" parameterType="YgUserCardPackItem" useGeneratedKeys="true" keyProperty="itemId">
+        insert into yg_user_card_pack_item
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="packId != null">pack_id,</if>
+            <if test="cardId != null">card_id,</if>
+            <if test="quantity != null">quantity,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="remark != null">remark,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="packId != null">#{packId},</if>
+            <if test="cardId != null">#{cardId},</if>
+            <if test="quantity != null">#{quantity},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="remark != null">#{remark},</if>
+         </trim>
+    </insert>
+
+    <update id="updateYgUserCardPackItem" parameterType="YgUserCardPackItem">
+        update yg_user_card_pack_item
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="packId != null">pack_id = #{packId},</if>
+            <if test="cardId != null">card_id = #{cardId},</if>
+            <if test="quantity != null">quantity = #{quantity},</if>
+            <if test="createTime != null">create_time = #{createTime},</if>
+            <if test="remark != null">remark = #{remark},</if>
+        </trim>
+        where item_id = #{itemId}
+    </update>
+
+    <delete id="deleteYgUserCardPackItemByItemId" parameterType="Long">
+        delete from yg_user_card_pack_item where item_id = #{itemId}
+    </delete>
+
+    <delete id="deleteYgUserCardPackItemByItemIds" parameterType="String">
+        delete from yg_user_card_pack_item where item_id in
+        <foreach item="itemId" collection="array" open="(" separator="," close=")">
+            #{itemId}
+        </foreach>
+    </delete>
+
+    <delete id="deleteYgUserCardPackItemByPackId" parameterType="Long">
+        delete from yg_user_card_pack_item where pack_id = #{packId}
+    </delete>
+</mapper>

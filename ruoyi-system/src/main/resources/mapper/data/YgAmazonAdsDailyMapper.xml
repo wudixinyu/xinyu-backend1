@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.system.mapper.YgAmazonAdsDailyMapper">
+
+    <resultMap type="YgAmazonAdsDaily" id="YgAmazonAdsDailyResult">
+        <result property="dailyId"      column="daily_id"       />
+        <result property="reportDate"   column="report_date"    />
+        <result property="profileId"    column="profile_id"     />
+        <result property="campaignName" column="campaign_name"  />
+        <result property="impressions"  column="impressions"    />
+        <result property="clicks"       column="clicks"         />
+        <result property="spend"        column="spend"          />
+        <result property="sales"        column="sales"          />
+        <result property="orders"       column="orders"         />
+        <result property="createBy"     column="create_by"      />
+        <result property="createTime"   column="create_time"    />
+        <result property="updateBy"     column="update_by"      />
+        <result property="updateTime"   column="update_time"    />
+        <result property="remark"       column="remark"         />
+    </resultMap>
+
+    <sql id="selectYgAmazonAdsDailyVo">
+        select daily_id, report_date, profile_id, campaign_name, impressions, clicks, spend, sales, orders,
+        create_by, create_time, update_by, update_time, remark from yg_amazon_ads_daily
+    </sql>
+
+    <select id="selectYgAmazonAdsDailyList" parameterType="YgAmazonAdsDaily" resultMap="YgAmazonAdsDailyResult">
+        <include refid="selectYgAmazonAdsDailyVo"/>
+        <where>
+            <if test="campaignName != null and campaignName != ''"> and campaign_name like concat('%', #{campaignName}, '%')</if>
+            <if test="profileId != null and profileId != ''"> and profile_id = #{profileId}</if>
+            <if test="params.beginTime != null and params.beginTime != ''"> and report_date &gt;= #{params.beginTime}</if>
+            <if test="params.endTime != null and params.endTime != ''"> and report_date &lt;= #{params.endTime}</if>
+        </where>
+        order by report_date desc, daily_id desc
+    </select>
+
+    <select id="selectYgAmazonAdsDailyByDailyId" parameterType="Long" resultMap="YgAmazonAdsDailyResult">
+        <include refid="selectYgAmazonAdsDailyVo"/>
+        where daily_id = #{dailyId}
+    </select>
+
+    <select id="selectByUniqueKey" resultMap="YgAmazonAdsDailyResult">
+        <include refid="selectYgAmazonAdsDailyVo"/>
+        where report_date = date(#{reportDate}) and profile_id = #{profileId} and campaign_name = #{campaignName}
+        limit 1
+    </select>
+
+    <insert id="insertYgAmazonAdsDaily" parameterType="YgAmazonAdsDaily" useGeneratedKeys="true" keyProperty="dailyId">
+        insert into yg_amazon_ads_daily
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="reportDate != null">report_date,</if>
+            <if test="profileId != null">profile_id,</if>
+            <if test="campaignName != null and campaignName != ''">campaign_name,</if>
+            <if test="impressions != null">impressions,</if>
+            <if test="clicks != null">clicks,</if>
+            <if test="spend != null">spend,</if>
+            <if test="sales != null">sales,</if>
+            <if test="orders != null">orders,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+            <if test="remark != null">remark,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="reportDate != null">#{reportDate},</if>
+            <if test="profileId != null">#{profileId},</if>
+            <if test="campaignName != null and campaignName != ''">#{campaignName},</if>
+            <if test="impressions != null">#{impressions},</if>
+            <if test="clicks != null">#{clicks},</if>
+            <if test="spend != null">#{spend},</if>
+            <if test="sales != null">#{sales},</if>
+            <if test="orders != null">#{orders},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+            <if test="remark != null">#{remark},</if>
+         </trim>
+    </insert>
+
+    <update id="updateYgAmazonAdsDaily" parameterType="YgAmazonAdsDaily">
+        update yg_amazon_ads_daily
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="reportDate != null">report_date = #{reportDate},</if>
+            <if test="profileId != null">profile_id = #{profileId},</if>
+            <if test="campaignName != null and campaignName != ''">campaign_name = #{campaignName},</if>
+            <if test="impressions != null">impressions = #{impressions},</if>
+            <if test="clicks != null">clicks = #{clicks},</if>
+            <if test="spend != null">spend = #{spend},</if>
+            <if test="sales != null">sales = #{sales},</if>
+            <if test="orders != null">orders = #{orders},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="remark != null">remark = #{remark},</if>
+        </trim>
+        where daily_id = #{dailyId}
+    </update>
+
+    <delete id="deleteYgAmazonAdsDailyByDailyIds" parameterType="String">
+        delete from yg_amazon_ads_daily where daily_id in
+        <foreach item="dailyId" collection="array" open="(" separator="," close=")">
+            #{dailyId}
+        </foreach>
+    </delete>
+
+    <!-- 统计公共查询条件 -->
+    <sql id="statsWhere">
+        <where>
+            <if test="campaignName != null and campaignName != ''"> and campaign_name like concat('%', #{campaignName}, '%')</if>
+            <if test="profileId != null and profileId != ''"> and profile_id = #{profileId}</if>
+            <if test="params.beginTime != null and params.beginTime != ''"> and report_date &gt;= #{params.beginTime}</if>
+            <if test="params.endTime != null and params.endTime != ''"> and report_date &lt;= #{params.endTime}</if>
+        </where>
+    </sql>
+
+    <select id="selectAdsSummary" parameterType="YgAmazonAdsDaily" resultType="map">
+        select ifnull(sum(impressions), 0) impressions,
+               ifnull(sum(clicks), 0)      clicks,
+               ifnull(sum(spend), 0)       spend,
+               ifnull(sum(sales), 0)       sales,
+               ifnull(sum(orders), 0)      orders,
+               round(sum(spend) / nullif(sum(sales), 0) * 100, 2) acos,
+               round(sum(clicks) / nullif(sum(impressions), 0) * 100, 2) ctr,
+               round(sum(orders) / nullif(sum(clicks), 0) * 100, 2) cvr
+        from yg_amazon_ads_daily
+        <include refid="statsWhere"/>
+    </select>
+
+    <select id="selectAdsTrend" parameterType="YgAmazonAdsDaily" resultType="map">
+        select date_format(report_date, '%Y-%m-%d') statDate,
+               ifnull(sum(impressions), 0) impressions,
+               ifnull(sum(clicks), 0)      clicks,
+               ifnull(sum(spend), 0)       spend,
+               ifnull(sum(sales), 0)       sales,
+               ifnull(sum(orders), 0)      orders,
+               round(sum(spend) / nullif(sum(sales), 0) * 100, 2) acos,
+               round(sum(clicks) / nullif(sum(impressions), 0) * 100, 2) ctr,
+               round(sum(orders) / nullif(sum(clicks), 0) * 100, 2) cvr
+        from yg_amazon_ads_daily
+        <include refid="statsWhere"/>
+        group by report_date
+        order by report_date
+    </select>
+
+    <select id="selectAdsCampaignStats" parameterType="YgAmazonAdsDaily" resultType="map">
+        select campaign_name campaignName,
+               ifnull(sum(impressions), 0) impressions,
+               ifnull(sum(clicks), 0)      clicks,
+               ifnull(sum(spend), 0)       spend,
+               ifnull(sum(sales), 0)       sales,
+               ifnull(sum(orders), 0)      orders,
+               round(sum(spend) / nullif(sum(sales), 0) * 100, 2) acos,
+               round(sum(clicks) / nullif(sum(impressions), 0) * 100, 2) ctr,
+               round(sum(orders) / nullif(sum(clicks), 0) * 100, 2) cvr
+        from yg_amazon_ads_daily
+        <include refid="statsWhere"/>
+        group by campaign_name
+        order by sum(spend) desc
+        limit 20
+    </select>
+</mapper>
