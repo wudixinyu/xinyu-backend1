@@ -1,0 +1,40 @@
+name: Deploy to BaoTa
+
+on:
+  push:
+    branches: [ main ] # 如果你的主分支叫 master，请改为 master
+  workflow_dispatch: # 允许手动点击按钮触发
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # === 构建步骤（根据你的项目修改，如果是纯静态无编译，可删除这部分）===
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24.21.0' # 替换为你项目需要的 Node 版本
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install # 如果有 package-lock.json 推荐用 npm ci
+
+      - name: Build project
+        run: npm run build 
+      # ======================================================================
+
+      # === 部署步骤 ===
+      - name: Deploy to server
+        uses: easingthemes/ssh-deploy@main
+        with:
+          SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          REMOTE_HOST: ${{ secrets.DEPLOY_HOST }}
+          REMOTE_USER: ${{ secrets.DEPLOY_USER }}
+          TARGET: ${{ secrets.DEPLOY_PATH }}
+          # ⚠️ 注意：SOURCE 是你要上传的文件夹！请根据你的项目修改！
+          # 如果是 Vue/React 默认是 "dist/"；如果是 Nuxt 是 ".output/public/"；如果是纯静态网页就是 "./"
+          SOURCE: "dist/" 
+          ARGS: "-avz --delete" 
