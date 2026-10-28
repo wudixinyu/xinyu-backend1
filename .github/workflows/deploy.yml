@@ -75,6 +75,9 @@ jobs:
   # ---------- 2. 部署到宝塔服务器 ----------
   # 认证：优先公钥（DEPLOY_SSH_KEY），公钥被拒时自动降级密码（DEPLOY_PASSWORD）
   # 流程：上传 jar -> 备份旧版 -> 停旧进程 -> 启动新版 -> 健康检查 -> 失败自动回滚
+  # 必需 Secrets：DEPLOY_HOST / DEPLOY_USER / DEPLOY_PATH，以及 SSH 密钥或密码其一
+  # 可选 Secrets：DEPLOY_PORT(22) / DEPLOY_APP_PORT(8080) / DEPLOY_JAVA_HOME / DEPLOY_PROFILE
+  #               DEPLOY_JVM_OPTS / DEPLOY_EXTRA_ARGS
   deploy:
     name: Deploy
     needs: build
@@ -96,6 +99,8 @@ jobs:
       EXTRA_ARGS: ${{ secrets.DEPLOY_EXTRA_ARGS }}
       # 上传目录覆盖；不配置时沿用 application.yml 的 ruoyi.profile（/home/ruoyi/uploadPath）
       PROFILE_DIR: ${{ secrets.DEPLOY_PROFILE }}
+      # JDK 目录覆盖；不配置时自动探测（PATH → /www/server/java → /usr/lib/jvm → ...）
+      JAVA_HOME_DIR: ${{ secrets.DEPLOY_JAVA_HOME }}
     steps:
       - name: Download jar artifact
         uses: actions/download-artifact@v4
@@ -191,14 +196,28 @@ jobs:
             SSH_CMD="ssh -i $HOME/.ssh/deploy_key -p $PORT -o BatchMode=yes -o StrictHostKeyChecking=accept-new"
           fi
 
-          $SSH_CMD "${USER_NAME}@${HOST}" "bash -s" <<'REMOTE'
+          $SSH_CMD "${USER_NAME}@${HOST}" "JAVA_HOME_DIR='${JAVA_HOME_DIR:-}' bash -s" <<'REMOTE'
           set -u
           echo "主机：$(hostname)"
-          if ! command -v java >/dev/null 2>&1; then
-            echo "::error::服务器未安装 JDK 17+，请先在宝塔「软件商店 → Java 项目」或包管理器安装"
+
+          # JDK 定位：优先 DEPLOY_JAVA_HOME，其次 PATH，最后扫常见安装位置
+          # （宝塔装的 JDK 通常不在非交互式 SSH 的 PATH 里，必须靠绝对路径）
+          JAVA_BIN="${JAVA_HOME_DIR:-}/bin/java"
+          [ -x "$JAVA_BIN" ] || JAVA_BIN="$(command -v java 2>/dev/null || true)"
+          if [ ! -x "$JAVA_BIN" ]; then
+            for c in /www/server/java/*/bin/java /www/server/java/*/*/bin/java \
+                     /usr/lib/jvm/*/bin/java /usr/local/*jdk*/bin/java \
+                     /usr/local/java/bin/java /opt/*jdk*/bin/java \
+                     "$HOME/.sdkman/candidates/java/current/bin/java"; do
+              [ -x "$c" ] && { JAVA_BIN="$c"; break; }
+            done
+          fi
+          if [ ! -x "$JAVA_BIN" ]; then
+            echo "::error::未找到 JDK。已尝试 PATH 及 /www/server/java、/usr/lib/jvm、/usr/local、/opt 等常见路径。请安装 JDK 17，或配置 Secret DEPLOY_JAVA_HOME 指向 JDK 目录（如 /www/server/java/jdk-17）"
             exit 1
           fi
-          java -version 2>&1 | head -3
+          echo "JDK 路径：$JAVA_BIN"
+          "$JAVA_BIN" -version 2>&1 | head -3
           if ! command -v rsync >/dev/null 2>&1; then
             echo "::error::服务器缺少 rsync，请执行 yum install -y rsync 或 apt-get install -y rsync"
             exit 1
@@ -241,10 +260,27 @@ jobs:
 
           # 参数以命令前缀注入远端；JVM_OPTS / EXTRA_ARGS 里不要含单引号
           $SSH_CMD "${USER_NAME}@${HOST}" \
-            "TARGET='$TARGET' APP_PORT='${APP_PORT:-8080}' JVM_OPTS='$JVM_OPTS' EXTRA_ARGS='$EXTRA_ARGS' PROFILE_DIR='${PROFILE_DIR:-}' bash -s" <<'REMOTE'
+            "TARGET='$TARGET' APP_PORT='${APP_PORT:-8080}' JVM_OPTS='$JVM_OPTS' EXTRA_ARGS='$EXTRA_ARGS' PROFILE_DIR='${PROFILE_DIR:-}' JAVA_HOME_DIR='${JAVA_HOME_DIR:-}' bash -s" <<'REMOTE'
           set -u
           cd "$TARGET" || { echo "目录不存在：$TARGET"; exit 1; }
           mkdir -p logs
+
+          # JDK 定位（宝塔装的 JDK 不在非交互式 SSH 的 PATH 里，必须靠绝对路径）
+          JAVA_BIN="${JAVA_HOME_DIR:-}/bin/java"
+          [ -x "$JAVA_BIN" ] || JAVA_BIN="$(command -v java 2>/dev/null || true)"
+          if [ ! -x "$JAVA_BIN" ]; then
+            for c in /www/server/java/*/bin/java /www/server/java/*/*/bin/java \
+                     /usr/lib/jvm/*/bin/java /usr/local/*jdk*/bin/java \
+                     /usr/local/java/bin/java /opt/*jdk*/bin/java \
+                     "$HOME/.sdkman/candidates/java/current/bin/java"; do
+              [ -x "$c" ] && { JAVA_BIN="$c"; break; }
+            done
+          fi
+          if [ ! -x "$JAVA_BIN" ]; then
+            echo "未找到 JDK，中止且不动线上 jar"
+            exit 1
+          fi
+          echo "JDK 路径：$JAVA_BIN"
 
           # 上传目录：配置了 DEPLOY_PROFILE 才覆盖，否则沿用 application.yml 的 ruoyi.profile
           PROFILE_ARG=""
@@ -311,7 +347,7 @@ jobs:
           # 旧日志归档，方便和本次启动对照
           [ -f logs/app.out ] && mv -f logs/app.out logs/app.out.prev || true
 
-          nohup java $FINAL_OPTS -jar app.jar \
+          nohup "$JAVA_BIN" $FINAL_OPTS -jar app.jar \
             --server.port="$APP_PORT" \
             $PROFILE_ARG \
             $EXTRA_ARGS >> logs/app.out 2>&1 &
@@ -367,7 +403,7 @@ jobs:
           echo "检测到失败，尝试回滚..."
 
           $SSH_CMD "${USER_NAME}@${HOST}" \
-            "TARGET='$TARGET' APP_PORT='${APP_PORT:-8080}' JVM_OPTS='$JVM_OPTS' EXTRA_ARGS='$EXTRA_ARGS' PROFILE_DIR='${PROFILE_DIR:-}' bash -s" <<'REMOTE'
+            "TARGET='$TARGET' APP_PORT='${APP_PORT:-8080}' JVM_OPTS='$JVM_OPTS' EXTRA_ARGS='$EXTRA_ARGS' PROFILE_DIR='${PROFILE_DIR:-}' JAVA_HOME_DIR='${JAVA_HOME_DIR:-}' bash -s" <<'REMOTE'
           set -u
           cd "$TARGET" || exit 1
           if [ ! -f app.jar.bak ]; then
@@ -379,6 +415,22 @@ jobs:
           PROFILE_ARG=""
           if [ -n "${PROFILE_DIR:-}" ]; then PROFILE_ARG="--ruoyi.profile=$PROFILE_DIR"; fi
 
+          # 回滚同样需要绝对路径定位 JDK
+          JAVA_BIN="${JAVA_HOME_DIR:-}/bin/java"
+          [ -x "$JAVA_BIN" ] || JAVA_BIN="$(command -v java 2>/dev/null || true)"
+          if [ ! -x "$JAVA_BIN" ]; then
+            for c in /www/server/java/*/bin/java /www/server/java/*/*/bin/java \
+                     /usr/lib/jvm/*/bin/java /usr/local/*jdk*/bin/java \
+                     /usr/local/java/bin/java /opt/*jdk*/bin/java \
+                     "$HOME/.sdkman/candidates/java/current/bin/java"; do
+              [ -x "$c" ] && { JAVA_BIN="$c"; break; }
+            done
+          fi
+          if [ ! -x "$JAVA_BIN" ]; then
+            echo "未找到 JDK，无法重启回滚后的版本，请手动启动"
+            exit 0
+          fi
+
           KILL_PID="$(pgrep -f 'java .*app\.jar' 2>/dev/null | head -1 || true)"
           if [ -n "$KILL_PID" ]; then
             kill "$KILL_PID" 2>/dev/null || true
@@ -387,7 +439,7 @@ jobs:
           fi
 
           DEFAULT_JVM_OPTS="-Xms512m -Xmx1024m -Dfile.encoding=UTF-8 -Duser.timezone=Asia/Shanghai"
-          nohup java ${JVM_OPTS:-$DEFAULT_JVM_OPTS} -jar app.jar \
+          nohup "$JAVA_BIN" ${JVM_OPTS:-$DEFAULT_JVM_OPTS} -jar app.jar \
             --server.port="$APP_PORT" \
             $PROFILE_ARG \
             $EXTRA_ARGS >> logs/app.out 2>&1 &
